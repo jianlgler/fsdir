@@ -7,17 +7,12 @@
 
 // converts a block index to an index in the array,
 // and a char that indicates the offset of the bit inside the array
-BitMapEntryKey BitMap_blockToIndex(int num)
+BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memoria
 {
-    if(num < 0)
-    {
-        printf("[PARAM ERROR], %d\n", num);
-        return NULL;
-    }
-    BitMapEntryKey* entry_k = (BitMapEntryKey*) malloc(sizeof(BitMapEntryKey));
-    entry_k -> entry_num = num / BYTE_DIM;
-    entry_k -> bit_num = num % BYTE_DIM;
-    return *entry_k;
+    BitMapEntryKey entry_k;
+    entry_k.entry_num = num / BYTE_DIM; //indice entry 
+    entry_k.bit_num = num % BYTE_DIM; //spiazzamento (resto divisione)
+    return entry_k;
 }
 
 // converts a bit to a linear index
@@ -56,27 +51,36 @@ int BitMap_get(BitMap* bmap, int start, int status)
         return -1;
     }
 
-    for(int i = start; i < bmap -> num_bits; i++)
+    int pos;
+    for(int i = start; i < bmap->num_bits; i++)
     {
-        BitMapEntryKey entry = BitMap_blockToIndex(i);   
-        if(bmap -> entries[entry.entry_num] >> entry.bit_num == 1) return i; //not sure 'bout dus
+        BitMapEntryKey entry = BitMap_blockToIndex(i);
+        int index = entry.entry_num;
+        //X AND 1 ---> if x == 1 torna 1 else torna 0
+        if((bmap -> entries[index] >> entry.bit_num & 1) == status) return i; 
+        //se non va and 1 provare and 0x01 
     }
-    printf("No more free blocks!\n");
+
+    printf("No block with status %d.\n", status);
+    printf("No block with status %d..\n", status);
+    printf("No block with status %d...\n", status);
+    printf("Return value = -1"); 
     return -1;
 
 }
 
 // sets the bit at index pos in bmap to status
-int BitMap_set(BitMap* bmap, int pos, int status)
+// torna -1 in caso di errore, 0 altrimenti
+int BitMap_set(BitMap* bmap, int pos, int status) 
 {
     if(status != 0 && status != 1)
     {
         printf("[PARAM ERROR], %d\n", status);
         return -1;
     }
-    if(post > bmap -> num_bits || pos < 0 )
+    if(pos > bmap -> num_bits || pos < 0 )
     {
-        printf("[PARAM ERROR], %d\n", start);
+        printf("[PARAM ERROR], %d\n", pos);
         return -1;
     }
     if(bmap == NULL)
@@ -86,7 +90,23 @@ int BitMap_set(BitMap* bmap, int pos, int status)
     } 
 
     BitMapEntryKey entry = BitMap_blockToIndex(pos);
-    
+
+    uint8_t mask = 1 >> (7 - entry.bit_num); //not sure da provare
+
+    //X AND 1 ---> if x == 1 torna 1 else torna 0
+
+    if(status)
+    {
+        
+        bmap->entries[entry.entry_num] |= mask;
+    }
+    else 
+    {
+        bmap->entries[entry.entry_num] &= ~(mask);
+    }
+
+    return 0;
+}
 
 
 void BitMap_print(BitMap* bm)
@@ -99,6 +119,6 @@ void BitMap_print(BitMap* bm)
 
         printf("Entry_num = %d\tBit_num = %d\nStatus = %d\n---------------------------",
             entry_k.entry_num, entry_k.bit_num, 
-            BitMap_getStatus(entry_k.entry_num, entry_k.bit_num));
+            status);
     }
 }
