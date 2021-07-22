@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "bitmap.h"
+#include "common.h"
 
 #define BYTE_DIM 8
 
@@ -9,6 +11,8 @@
 // and a char that indicates the offset of the bit inside the array
 BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memoria
 {
+    if(num < 0) handle_error_en("[PARAM ERROR], num", EINVAL);
+
     BitMapEntryKey entry_k;
     entry_k.entry_num = num / BYTE_DIM; //indice entry 
     entry_k.bit_num = num % BYTE_DIM; //spiazzamento (resto divisione)
@@ -18,16 +22,10 @@ BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memo
 // converts a bit to a linear index
 int BitMap_indexToBlock(int entry, uint8_t bit_num)
 {
-    if(entry < 0)
-    {
-        printf("[PARAM ERROR], %d\n", entry);
-        return -1;
-    }
-    if(bit_num < 0)
-    {
-        printf("[PARAM ERROR], %d\n", bit_num);
-        return -1;
-    }
+    if(entry < 0)   handle_error_en("[PARAM ERROR], entry", EINVAL);
+    
+    if(bit_num < 0) handle_error_en("[PARAM ERROR], bit_num", EINVAL);
+    
     return (entry * BYTE_DIM) + bit_num;
 }
 
@@ -35,21 +33,12 @@ int BitMap_indexToBlock(int entry, uint8_t bit_num)
 // in the bitmap bmap, and starts looking from position start
 int BitMap_get(BitMap* bmap, int start, int status)
 {
-    if(status != 0 && status != 1)
-    {
-        printf("[PARAM ERROR], %d\n", status);
-        return -1;
-    }
-    if(start > bmap -> num_bits || start < 0 )
-    {
-        printf("[PARAM ERROR], %d\n", start);
-        return -1;
-    }
-    if(bmap == NULL)
-    {
-        printf("[PARAM ERROR], NullBitMap_exception\n");
-        return -1;
-    }
+    if(status != 0 && status != 1) handle_error_en("[PARAM ERROR], status", EINVAL);
+    
+    if(start > bmap -> num_bits || start < 0 ) handle_error_en("[PARAM ERROR], start", EINVAL);
+    
+    if(bmap == NULL) handle_error_en("[PARAM ERROR], null_bitmap", EINVAL);
+    
 
     int pos;
     for(int i = start; i < bmap->num_bits; i++)
@@ -73,21 +62,12 @@ int BitMap_get(BitMap* bmap, int start, int status)
 // torna -1 in caso di errore, 0 altrimenti
 int BitMap_set(BitMap* bmap, int pos, int status) 
 {
-    if(status != 0 && status != 1)
-    {
-        printf("[PARAM ERROR], %d\n", status);
-        return -1;
-    }
-    if(pos > bmap -> num_bits || pos < 0 )
-    {
-        printf("[PARAM ERROR], %d\n", pos);
-        return -1;
-    }
-    if(bmap == NULL)
-    {
-        printf("[PARAM ERROR], NullBitMap_exception\n");
-        return -1;
-    } 
+    if(status != 0 && status != 1) handle_error_en("[PARAM ERROR], status", EINVAL);
+    
+    if(pos > bmap -> num_bits || pos < 0 ) handle_error_en("[PARAM ERROR], pos", EINVAL);
+    
+    if(bmap == NULL) handle_error_en("[PARAM ERROR], null_bitmap", EINVAL);
+    
 
     BitMapEntryKey entry = BitMap_blockToIndex(pos);
 
@@ -111,6 +91,11 @@ int BitMap_set(BitMap* bmap, int pos, int status)
 
 void BitMap_print(BitMap* bm)
 {
+    if(bm == NULL)
+    {
+        handle_error_en("[PARAM ERROR], null_bitmap", EINVAL);
+    } 
+
     for(int i = 0; i < bm -> num_bits; i++)
     {
         BitMapEntryKey entry_k = BitMap_blockToIndex(i);
