@@ -22,7 +22,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
     int bitmap_size = (num_blocks / BYTE_DIM) + 1;
 
     size_t header_size = sizeof(DiskHeader) + bitmap_size;
-    //size_t header_size = sizeof(DiskHeader);
+    //size_t header_size = sizeof(DiskHeader) + bitmap_size + num_blocks*BLOCK_SIZE;
 
 
     if(access(filename, F_OK) == 0)
