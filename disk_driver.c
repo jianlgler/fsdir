@@ -2,8 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <string.h>
 #include <errno.h>
-#include <sys/mman.h> 
+#include <sys/mman.h>
+#include <unistd.h> 
 
 #define BYTE_DIM 8
 
@@ -32,7 +34,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         //ensuring disk space
         if(posix_fallocate(fd, 0, header_size)) 
         {
-            clse(fd);
+            close(fd);
             handle_error("Error f-allocating");
         }
         
@@ -44,7 +46,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
             handle_error("Error while mapping");
         } 
         //prendiamo il primo blocco libero, l'indice
-        hdr->first_free_block = DiskDriver_getFreeBlock(disk, 0);
+        //hdr->first_free_block = DiskDriver_getFreeBlock(disk, 0);
 
         disk->header = hdr;
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore alla mappa, skippo header
@@ -57,7 +59,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 
         if(posix_fallocate(fd, 0, header_size))  
         {
-            clse(fd);
+            close(fd);
             handle_error("Error f-allocating");
         }
 

@@ -10,7 +10,8 @@ OBJS = #add here your object files
 
 HEADERS=bitmap.h\
 	disk_driver.h\
-	simplefs.h
+	simplefs.h\
+	common.h
 
 %.o:	%.c $(HEADERS)
 	$(CC) $(CCOPTS) -c -o $@  $<
