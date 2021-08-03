@@ -23,7 +23,7 @@ typedef struct {
    have to be calculated after the space occupied by the bitmap
 */
 
-// opens the file (creating it if necessary_
+// opens the file (creating it if necessary)
 // allocates the necessary space on the disk
 // calculates how big the bitmap should be
 // if the file was new

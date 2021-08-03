@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "bitmap.h"
 #include "common.h"
@@ -39,21 +40,19 @@ int BitMap_get(BitMap* bmap, int start, int status)
     
     if(bmap == NULL) handle_error_en("[PARAM ERROR], null_bitmap", (int) EINVAL);
     
-
-    int pos;
+    //scorro il block index, ogni volta mi prendo l'entry key della quale faccio un bit-check
     for(int i = start; i < bmap->num_bits; i++)
     {
         BitMapEntryKey entry = BitMap_blockToIndex(i);
         int index = entry.entry_num;
+        int bit = (bmap -> entries[index] >> entry.bit_num) & 0x01;
         //X AND 1 ---> if x == 1 torna 1 else torna 0
-        if((bmap -> entries[index] >> entry.bit_num & 0x01) == status) return i; 
+        if( bit == status) return i; 
         //se non va and 1 provare and 0x01 
     }
 
-    printf("No block with status %d.\n", status);
-    printf("No block with status %d..\n", status);
-    printf("No block with status %d...\n", status);
-    printf("Return value = -1"); 
+    printf("No block with status %d...", status);
+    printf("Return value = -1\n"); 
     return -1;
 
 }
@@ -61,7 +60,7 @@ int BitMap_get(BitMap* bmap, int start, int status)
 // sets the bit at index pos in bmap to status
 // torna -1 in caso di errore, 0 altrimenti
 int BitMap_set(BitMap* bmap, int pos, int status) 
-{
+{   
     if(status != 0 && status != 1) handle_error_en("[PARAM ERROR], status", (int) EINVAL);
     
     if(pos > bmap -> num_bits || pos < 0 ) handle_error_en("[PARAM ERROR], pos", (int) EINVAL);
@@ -71,14 +70,16 @@ int BitMap_set(BitMap* bmap, int pos, int status)
 
     BitMapEntryKey entry = BitMap_blockToIndex(pos);
 
-    uint8_t mask = 1 >> (7 - entry.bit_num); //not sure da provare
-
+    unsigned char mask = 1 << entry.bit_num; //not sure da provare
+    
     //X AND 1 ---> if x == 1 torna 1 else torna 0
-
+    
+    //fin qui tutto ok
     if(status)
     {
         
-        bmap->entries[entry.entry_num] |= mask;
+        bmap->entries[entry.entry_num] |= mask; //non so perchè questa istruzione porta a segfault
+        
     }
     else 
     {
@@ -99,11 +100,11 @@ void BitMap_print(BitMap* bm)
     for(int i = 0; i < bm -> num_bits; i++)
     {
         BitMapEntryKey entry_k = BitMap_blockToIndex(i);
-        //prendo il blocco, shifto al bit e confronto con 1, == andava comunque bene (credo...)
-        int status = bm->entries[entry_k.entry_num] >> entry_k.bit_num & 1;
-
-        printf("Entry_num = %d\tBit_num = %d\nStatus = %d\n--------------------------",
-            entry_k.entry_num, entry_k.bit_num, 
+        //prendo il blocco, shifto al bit e confronto con 1
+        int status = bm->entries[entry_k.entry_num] >> entry_k.bit_num & 0x01;
+        printf("Value in BitMap entries = %c\t", bm->entries[entry_k.entry_num]);
+        printf("Block = %d\tEntry_num = %d\tOffset = %d\tStatus = %d\n",
+            i, entry_k.entry_num, entry_k.bit_num, 
             status);
     }
 }
