@@ -27,8 +27,7 @@ typedef struct {
 // allocates the necessary space on the disk
 // calculates how big the bitmap should be
 // if the file was new
-// compiles a disk header, and fills in the bitmap of appropriate size
-// with all 0 (to denote the free space);
+// compiles a disk header, and fills in the bitmap of appropriate size with all 0 (to denote the free space);
 void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks);
 
 // reads the block in position block_num
@@ -49,3 +48,6 @@ int DiskDriver_getFreeBlock(DiskDriver* disk, int start);
 
 // writes the data (flushing the mmaps)
 int DiskDriver_flush(DiskDriver* disk);
+
+//initialize header
+DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t size);

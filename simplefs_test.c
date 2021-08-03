@@ -9,7 +9,7 @@
 
 int main(int agc, char** argv) {
  
-    printf("\n------------------BITMAP TEST---------------------\n");
+    printf("\n------------------BITMAP TEST----------------------\n");
 
   	printf("BitMap 1:--------------------------------------------\n");
 
@@ -84,4 +84,32 @@ int main(int agc, char** argv) {
     pos = 0; status = 1; ret = BitMap_set(bm1, pos, status); 
     printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
     printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    pos = 0; status = 0; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    pos = 10; status = 1; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    pos = 25; status = 1; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    pos = 25; status = 0; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    //Decommentare per vedere gestione errori
+    /*pos = 66; status = 1; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+
+    pos = 42; status = 5; ret = BitMap_set(bm1, pos, status); 
+    printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);*/
+
+    printf("\nBITMAP OK!\n");
+    printf("\n------------------DISK_DRIVER TEST----------------------\n");
 }
