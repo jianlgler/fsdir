@@ -2,6 +2,7 @@
 #include "bitmap.h"
 
 #define BLOCK_SIZE 512
+#define BYTE_DIM 8
 // this is stored in the 1st block of the disk
 typedef struct {
   int num_blocks;
