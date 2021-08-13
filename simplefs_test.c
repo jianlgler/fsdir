@@ -112,4 +112,14 @@ int main(int agc, char** argv) {
 
     printf("\nBITMAP OK!\n");
     printf("\n------------------DISK_DRIVER TEST----------------------\n");
+
+    DiskDriver* disk = (DiskDriver*) malloc(sizeof(DiskDriver));
+    DiskDriver_init(disk, "./test.txt", 42);
+    BitMap bm;
+    bm.num_bits = disk->header->bitmap_blocks;
+    bm.entries = disk->bitmap_data;
+
+    printf("DiskDriver inizializzato e bitmap creata-------------------\n\n");
+
+    DiskDriver_print(disk);
 }

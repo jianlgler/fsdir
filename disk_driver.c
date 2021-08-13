@@ -36,30 +36,32 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
     // opens the file (creating it if necessary)
     if(access(filename, F_OK) == 0) //already exists
     {   //apertura file
+        
         fd = open(filename, O_RDWR , 0666);
-        if(fd == -1) handle_error("Error opening file, fd is -1"); 
+        
+        if(fd == -1) handle_error("Error opening file, fd is -1, A"); 
         //ensuring disk space
-
+        
         ret = posix_fallocate(fd, 0, header_size);
+        
         if(ret)  
         {
             close(fd);
             handle_error_en("Error f-allocating", ret); //fallocate non setta errno
         }
         DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);
-        
-     
-        //prendiamo il primo blocco libero, l'indice, RICORDARSI DI DECOMMENTARE
-        hdr->first_free_block = DiskDriver_getFreeBlock(disk, 0);
 
         disk->header = hdr;
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore alla mappa, skippo header
         disk->fd = fd;
+
+         //prendiamo il primo blocco libero, l'indice, RICORDARSI DI DECOMMENTARE
+        hdr->first_free_block = DiskDriver_getFreeBlock(disk, 0);
     }
     else //to create
     {
         fd = open(filename, O_CREAT | O_RDWR | O_TRUNC , 0666);
-        if(fd == -1) handle_error("Error opening file, fd is -1"); 
+        if(fd == -1) handle_error("Error opening file, fd is -1, B"); 
 
         ret = posix_fallocate(fd, 0, header_size);
         if(ret)  
@@ -223,12 +225,13 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
 int DiskDriver_getFreeBlock(DiskDriver* disk, int start)
 {
     if(start < 0 || start > disk->header->num_blocks) handle_error_en("Invalid param (start)", EINVAL);
+    printf("OOOK2\n");
     if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
-
+    
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
-
+    
     return BitMap_get(&bm, start, 0);
 }
 
@@ -252,3 +255,19 @@ int DiskDriver_flush(DiskDriver* disk)
 
    return 0;
 }
+
+void DiskDriver_print(DiskDriver* disk)
+{
+    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
+
+    DiskHeader* hdr = disk->header;
+    int free_space = (hdr->free_blocks)*BLOCK_SIZE;
+    int used_space = (hdr->num_blocks - hdr->free_blocks)*BLOCK_SIZE;
+
+    printf("Number of blocks: %d\n", hdr->num_blocks);
+    printf("Free blocks: %d\n", hdr->free_blocks);
+    printf("First free block: %d\n", hdr->first_free_block);
+    printf("Used space: %d\tFree space: %d\n", used_space, free_space);
+}
+
+
