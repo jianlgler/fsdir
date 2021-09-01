@@ -1,4 +1,3 @@
-#include "disk_driver.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -7,7 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h> 
 
-
+#include "disk_driver.h"
 
 DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t size)
 {
@@ -269,5 +268,3 @@ void DiskDriver_print(DiskDriver* disk)
     printf("First free block: %d\n", hdr->first_free_block);
     printf("Used space: %d\tFree space: %d\n", used_space, free_space);
 }
-
-
