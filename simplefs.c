@@ -126,8 +126,52 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
         {
             //leggo il blocco (error check)
             //poi faccio stesso controllo di prima su fdb, ma su db
+            int ret;
+            ret = DiskDriver_readBlock(disk, &db, next_block);
+            if(ret == -1)
+            {
+                printf("SimpleFS_createFile: error while reading DirectoryBlock\n");
+                return NULL;
+            }
+
+            for(int i = 0; i < db_space; i++)
+            {
+                if((db.file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, db.file_blocks[i])) != -1)
+                {
+                    if(strcmp(fdb->fcb.name,filename) == 0)
+                    {
+					    printf("SimpleFS_createFile: file already exists\n");
+					    return NULL;
+				    }
+                }
+            }
+            next_block = db.header.next_block;
         }
+    }//file does not previously exists
+    int new_block = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
+    if(new_block == -1)
+    {
+        printf("SimpleFS_createFile: error while asking for a free block\n");
     }
+
+    FirstFileBlock* file = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+    memset(file, 0, sizeof(FirstFileBlock)); //cleared
+
+    file->header.next_block = -1; file->header.previous_block = -1; file->header.block_in_file = 0; //default values
+    strcpy(file->fcb.name,filename); 
+    file->fcb.block_in_disk = new_block;
+    file->fcb.directory_block = fdb->fcb.block_in_disk;
+    file->fcb.is_dir = 0;
+
+    //ok now we put the block on the disk
+
+    int ret = DiskDriver_writeBlock(disk, file, new_block);
+    if(ret == -1)
+    {
+        printf("SimpleFS_createFile: error while writing block on the disk\n");
+		return NULL;
+    }
+    //now assign the file toa  dir
 
 }
 

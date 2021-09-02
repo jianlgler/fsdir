@@ -224,7 +224,7 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
 int DiskDriver_getFreeBlock(DiskDriver* disk, int start)
 {
     if(start < 0 || start > disk->header->num_blocks) handle_error_en("Invalid param (start)", EINVAL);
-    printf("OOOK2\n");
+    //printf("OOOK2\n");
     if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
     
     BitMap bm;
