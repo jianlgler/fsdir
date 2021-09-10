@@ -99,15 +99,15 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 	}
     //check per controllare se esiste già
 
-    int fdb_space = (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(FileControlBlock) - sizeof(int))/sizeof(int); //massimo spazio necessario per la struct, preso dal .h
-    int db_space = (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(int))/sizeof(int);
+    //int fdb_space = (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(FileControlBlock) - sizeof(int))/sizeof(int); //massimo spazio necessario per la struct, preso dal .h
+    //int db_space = (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(int))/sizeof(int);
 
 
     if(fdb->num_entries > 0)
     {
         FirstFileBlock temp;
 
-        for(int i = 0; i < fdb_space; i++)
+        for(int i = 0; i < FDB_SPACE; i++)
         {
             if((fdb->file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, fdb->file_blocks[i])) != -1)
             {
@@ -134,7 +134,7 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
                 return NULL;
             }
 
-            for(int i = 0; i < db_space; i++)
+            for(int i = 0; i < DB_SPACE; i++)
             {
                 if((db.file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, db.file_blocks[i])) != -1)
                 {
@@ -152,6 +152,8 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
     if(new_block == -1)
     {
         printf("SimpleFS_createFile: error while asking for a free block\n");
+        DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+        return NULL;
     }
 
     FirstFileBlock* file = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
@@ -162,6 +164,7 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
     file->fcb.block_in_disk = new_block;
     file->fcb.directory_block = fdb->fcb.block_in_disk;
     file->fcb.is_dir = 0;
+    //file->fcb.size_in_blocks = 0;  file->fcb.size_in_bytes = 0;
 
     //ok now we put the block on the disk
 
@@ -169,11 +172,125 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
     if(ret == -1)
     {
         printf("SimpleFS_createFile: error while writing block on the disk\n");
+        DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
 		return NULL;
     }
-    //now assign the file toa  dir
+    //now assign the file to a  dir
 
+    int block_found = 0;
+	int block_entry = 0; //for tracking
+	int no_space_fdb = 0;
+	int block_number = fdb->fcb.block_in_disk;
+	int block_in_file = 0;
+	int fdb_or_db = 0; // 0 if fdb
+
+    DirectoryBlock aux;
+
+    if(fdb->num_entries < FDB_SPACE)
+    {
+        int* blocks = fdb->file_blocks;
+        for(int j = 0; j < FDB_SPACE; j++)
+        {
+			if(blocks[j] == 0) //blocco libero, c'è spazio
+            {  
+				block_found = 1;
+				block_entry = j;
+				break;
+			}
+        }
+    }
+    else
+    { //provo nel directory block
+        no_space_fdb = 1;
+        int next_block = fdb->header.next_block;
+
+        while(next_block != -1 && !block_found) //finche ho un nuovo blocco libero e finche non ho trovato uno spazio
+        { 
+			ret = DiskDriver_readBlock(disk,&aux,next_block);
+			if(ret == -1)
+            {
+				printf("SimpleFS_createFile: error while reading blocks (DB)\n");
+				DiskDriver_freeBlock(disk, fdb->fcb.block_in_disk);
+				return NULL;
+			}//leggo come prima
+            int* blocks = fdb->file_blocks;		//cerco nello stesso modo di prima
+			block_number = next_block;
+			block_in_file++;
+			for(int i = 0; i < DB_SPACE;i++)
+            {
+				if(blocks[i] == 0)
+                {
+					block_found = 1;
+					block_entry = i;
+					break;
+				}
+			}
+            fdb_or_db = 1;
+			next_block = aux.header.next_block;
+        } //eow
+    }
+    if(!block_found) //allocate nu db with its header
+    {
+        DirectoryBlock new_db = {0};
+		new_db.header.next_block = -1;
+		new_db.header.block_in_file = block_in_file;
+		new_db.header.previous_block = block_number;
+		new_db.file_blocks[0] = new_block;
+
+        int free_db = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
+        if(free_db == -1)
+        {
+            printf("SimpleFS_createFile: error while asking for a free block_2\n");
+            DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+            return NULL;
+        }
+
+        ret = DiskDriver_writeBlock(disk, &new_db, free_db);
+        if(ret == -1)
+        {
+				printf("SimpleFS_createFile: error while writing a block\n");
+				DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+				return NULL;
+			}
+
+        if(fdb_or_db == 0 ) //change pos in next block (fdb or db)
+        {		
+		    fdb->header.next_block = free_db 
+		} 
+        else
+        {	
+			aux.header.next_block = free_db;
+		}
+		aux = new_db;			
+		block_number = free_db;
+    }
+
+    if(no_space_fdb == 0){ //il file è in fdb
+			fdb->num_entries++;
+			fdb->file_blocks[block_entry] = new_block;
+			DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+			DiskDriver_writeBlock(disk, fdb, fdb->fcb.block_in_disk);
+		}else{//il file è nei directory blocks
+			fdb->num_entries++;
+			DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+			DiskDriver_writeBlock(disk,fdb,fdb->fcb.block_in_disk);
+			aux.file_blocks[block_entry] = new_block;
+			DiskDriver_freeBlock(disk,block_number);
+			DiskDriver_writeBlock(disk,&aux,block_number);
+		}
+
+	FileHandle* fh = malloc(sizeof(FileHandle));
+	fh->sfs = d->sfs;
+	fh->fcb = file;
+	fh->directory = fdb;
+	fh->pos_in_file = 0;
+
+	return fh;
 }
+
+
+
+
 
 //-----------------------------------------------------------------------------------------------------
 

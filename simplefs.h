@@ -2,6 +2,8 @@
 #include "bitmap.h"
 #include "disk_driver.h"
 
+#define FDB_SPACE  (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(FileControlBlock) - sizeof(int))/sizeof(int)
+#define DB_SPACE  (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(int))/sizeof(int)
 /*these are structures stored on disk*/
 
 // header, occupies the first portion of each block in the disk
@@ -142,7 +144,5 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname);
 // returns -1 on failure 0 on success
 // if a directory, it removes recursively all contained files
 int SimpleFS_remove(SimpleFS* fs, char* filename);
-
-
   
 
