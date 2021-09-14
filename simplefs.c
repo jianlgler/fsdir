@@ -288,9 +288,77 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 	return fh;
 }
 
+// reads in the (preallocated) blocks array, the name of all files in a directory 
+int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
+{
+    if(names == NULL) handle_error_en("Invalid param (Names)", EINVAL);
+    if(d == NULL) handle_error_en("Invalid param (DirHandle)", EINVAL);
+
+    int count = 0;
+
+    FirstDirectoryBlock* dcb = d->dcb;
+    DiskDriver* disk = d->sfs->disk;
+
+    if(dcb->num_entries <= 0)
+    {
+        printf("SimpleFS_readDir: empty directory\n");
+        return -1;
+    }
 
 
+    FirstFileBlock* ffb = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+    if(ffb == NULL)
+    {
+		printf("SimpleFS_readDir: malloc error on db\n");
+		return -1;
+	}
 
+    /*DirectoryBlock* db = (DirectoryBlock*)malloc(sizeof(DirectoryBlock));
+	if(db == NULL)
+    {
+		printf("SimpleFS_readDir: malloc error on ffb\n");
+		return -1;
+	}*/
+
+    int* blocks = dcb->file_blocks;
+    for(int i = 0; i < FDB_SPACE; i++)
+    {
+        if(blocks[i] > 0 && DiskDriver_readBlock(disk, ffb, blocks[i]) != -1)
+        {
+            strncpy(names[count], ffb->fcb.name, 128);
+            flag[count] = ffb->fcb.is_dir; //salvo nella corrispondente pos il flag
+            count++;
+        }
+    }
+
+    if(dcb->num_entries > FDB_SPACE)
+    {
+        int next = dcb->header.next_block;
+		DirectoryBlock db;
+
+		while (next != -1)
+        {	
+			int ret = DiskDriver_readBlock(disk, &db, next); // read new directory block
+			if (ret == -1)
+            {
+				printf("SimpleFS_readDir: error while reading\n");
+				return -1;
+			}
+			int* blocks = db.file_blocks;
+            for(int i = 0; i < DB_SPACE; i++)
+            {
+                if(blocks[i] > 0 && DiskDriver_readBlock(disk, ffb, blocks[i]) != -1)
+                {
+                    strncpy(names[count], ffb->fcb.name, 128);
+                    flag[count] = ffb->fcb.is_dir; //salvo nella corrispondente pos il flag
+                    count++;
+                }
+            }
+            next = db.header.next_block;
+        }
+    }
+    return 0; //aight
+}
 
 //-----------------------------------------------------------------------------------------------------
 
