@@ -293,6 +293,7 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
 {
     if(names == NULL) handle_error_en("Invalid param (Names)", EINVAL);
     if(d == NULL) handle_error_en("Invalid param (DirHandle)", EINVAL);
+    if(flag == NULL) handle_error_en("Invalid param (flags)", EINVAL);
 
     int count = 0;
 
@@ -312,13 +313,6 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
 		printf("SimpleFS_readDir: malloc error on db\n");
 		return -1;
 	}
-
-    /*DirectoryBlock* db = (DirectoryBlock*)malloc(sizeof(DirectoryBlock));
-	if(db == NULL)
-    {
-		printf("SimpleFS_readDir: malloc error on ffb\n");
-		return -1;
-	}*/
 
     int* blocks = dcb->file_blocks;
     for(int i = 0; i < FDB_SPACE; i++)
@@ -358,6 +352,86 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
         }
     }
     return 0; //aight
+}
+
+// opens a file in the  directory d. The file should be exisiting
+FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
+{
+    if(filename == NULL) handle_error_en("Invalid param (filename)", EINVAL);
+    if(d == NULL) handle_error_en("Invalid param (DirHandle)", EINVAL);
+
+    DiskDriver* disk = d->sfs->disk;
+    FirstDirectoryBlock* fdb = d->dcb;
+    if(fdb->num_entries == 0)
+    {
+        printf("SimpleFS_openFile: empty directory\n");
+		return NULL;
+    }
+    if(fdb->num_entries > 0)
+    {
+        FileHandle* fh = (FileHandle*) malloc(sizeof(FileHandle));
+        fh = d->sfs;
+        fh->directory = fdb;
+        fh->pos_in_file = 0;
+
+        int found = 0;
+
+        FirstFileBlock* ffb = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+        for(int i = 0; i < FDB_SPACE; i++)
+        {
+            if(fdb->file_blocks[i] > 0 && DiskDriver_readBlock(disk, ffb, fdb->file_blocks[i]) != -1)
+            {
+               if(strncmp(ffb->fcb.name,filename,128) == 0 )
+               {
+                   
+                   //DiskDriver_readBlock(disk, ffb, fdb->file_blocks[i]);
+                   fh->fcb = ffb;
+                   found = 1;
+                   break;
+               }
+            }
+        }
+        //si va in directory blocks ora
+        int next = fdb->header.next_block;
+        DirectoryBlock db;
+        
+        while(next != -1 && !found)
+        {
+            if(DiskDriver_readBlock(disk, &db, next) == -1)
+            {
+                printf("SimpleFS_openFile: problem while reading blocks\n");
+				return NULL;
+            }
+
+            for(int i = 0; i < DB_SPACE; i++)
+            {
+                if(db.file_blocks[i] > 0 && DiskDriver_readBlock(disk, ffb, db.file_blocks[i]) != -1)
+                {
+                    if(strncmp(ffb->fcb.name,filename,128) == 0 )
+                    {
+                        
+                        //DiskDriver_readBlock(disk, ffb, fdb->file_blocks[i]);
+                        fh->fcb = ffb;
+                        found = 1;
+                        break;
+                    }                    
+                }
+            }
+        next = db.header.next_block;
+        }
+
+        if(found)
+        {
+            return fh;
+        }
+        else
+        {
+            printf("SimpleFS_openFile: file does not exist\n");
+            free(fh);
+            return NULL;
+        }
+    }
+    //return NULL;
 }
 
 //-----------------------------------------------------------------------------------------------------
