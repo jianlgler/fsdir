@@ -436,3 +436,133 @@ FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
 
 //-----------------------------------------------------------------------------------------------------
 
+// closes a file handle (destroyes it)
+int SimpleFS_close(FileHandle* f)
+{
+    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
+
+    free(f->fcb);
+    free(f);
+
+    return 0;
+}
+
+// writes in the file, at current position for size bytes stored in data
+// overwriting and allocating new space if necessary
+// returns the number of bytes written
+int SimpleFS_write(FileHandle* f, void* data, int size)
+{
+    //invalid param check
+    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
+    if(data == NULL) handle_error_en("Invalid param (data)", EINVAL);
+    if(size < 0) handle_error_en("Invalid param (size)", EINVAL);
+
+    FirstFileBlock* ffb = f->fcb; //ffb extraction
+    DiskDriver* disk = f->sfs->disk; // disk extraction
+
+    int written_bytes = 0;
+    int offset = f->pos_in_file;
+    int btw = size;
+
+    if(offset < FFB_SPACE && size <= FFB_SPACE - offset) //1 - best scenario
+    {
+        memcpy(ffb->data + offset, (char*) data, size);
+        written_bytes = size;
+        //updating
+        DiskDriver_freeBlock(disk,ffb->fcb.block_in_disk);
+        DiskDriver_writeBlock(disk, ffb, ffb->fcb.block_in_disk);
+
+        return written_bytes;
+    } //BEST SCENARIO ENDS
+    else if(offset < FFB_SPACE && size > FFB_SPACE - offset) //2 - offset ancora in ffb, ma i byte da scrivere non entrano tutti
+    {
+        memcpy(ffb->data+offset, (char*)data, FFB_SPACE - offset);
+		written_bytes += FFB_SPACE - offset;
+		btw = size - written_bytes;
+		DiskDriver_freeBlock(disk,ffb->fcb.block_in_disk);
+		DiskDriver_writeBlock(disk, ffb, ffb->fcb.block_in_disk);
+		offset = 0;
+    }
+    else //3 - pos fuori dall'ffb, bisogna proprio cambiare blocco
+    {
+        offset -= FFB_SPACE;
+
+        int next_block = ffb->header.next_block;
+
+        int block_in_disk = ffb->fcb.block_in_disk;
+		int block_in_file = ffb->header.block_in_file;
+		FileBlock temp;
+
+        int onlyblock = 0;
+        if(!next_block) onlyblock = 1;
+
+        while(written_bytes < size)
+        {
+            if(!next_block) //non ci sono blocchi, lo creiamo
+            {
+                FileBlock new_fb = {0};
+				new_fb.header.block_in_file = block_in_file + 1;
+				new_fb.header.next_block = -1;
+				new_fb.header.previous_block = block_in_disk;
+
+				next_block = DiskDriver_getFreeBlock(disk,block_in_disk);
+
+                if(onlyblock == 1)
+                {
+                    ffb->header.next_block = next_block;
+					DiskDriver_freeBlock(disk, block_in_disk);
+					DiskDriver_writeBlock(disk,ffb, block_in_disk); //ffb->fcb.block_in_disk;
+					onlyblock = 0;
+                }
+                else
+                {
+                    temp.header.next_block = next_block;
+					DiskDriver_freeBlock(disk, block_in_disk);
+					DiskDriver_writeBlock(disk,&temp, block_in_disk);
+                }
+                DiskDriver_writeBlock(disk, &new_fb, next_block);
+                temp = new_fb;
+            }
+            else
+            {
+                if(DiskDriver_readBlock(disk,&temp,next_block) == -1) return -1;
+
+                if(offset < FB_SPACE && size <= FB_SPACE - offset)
+                {
+                    memcpy(temp.data+offset, (char*)data, FB_SPACE - offset);
+					written_bytes += btw;
+
+		            DiskDriver_freeBlock(disk, block_in_disk);
+					DiskDriver_writeBlock(disk, ffb, block_in_disk);
+					//DiskDriver_freeBlock(disk, block_in_disk);
+                    DiskDriver_freeBlock(disk, next_block);
+					DiskDriver_writeBlock(disk, &temp, next_block);
+
+					return written_bytes;
+                }
+                else if(offset < FB_SPACE && btw > FB_SPACE - offset)
+                {
+                    memcpy(temp.data+offset,(char*)data + written_bytes, FB_SPACE - offset);
+					written_bytes += FB_SPACE - offset;
+					btw = size - written_bytes;
+					DiskDriver_freeBlock(disk, block_in_disk);
+					DiskDriver_writeBlock(disk, &temp, next_block);
+					offset = 0;
+                }
+                else
+                {
+                    offset -= FB_SPACE;
+
+
+					block_in_disk = next_block;	// update index of current_block
+					next_block = temp.header.next_block;
+					block_in_file = temp.header.block_in_file; // update index of next_block
+                }
+                
+            }
+        }//EOW
+        return written_bytes;
+    }
+
+}
+

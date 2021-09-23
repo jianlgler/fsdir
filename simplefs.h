@@ -2,8 +2,10 @@
 #include "bitmap.h"
 #include "disk_driver.h"
 
-#define FDB_SPACE  (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(FileControlBlock) - sizeof(int))/sizeof(int)
+#define FDB_SPACE (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(FileControlBlock) - sizeof(int))/sizeof(int)
 #define DB_SPACE  (BLOCK_SIZE - sizeof(BlockHeader) - sizeof(int))/sizeof(int)
+#define FFB_SPACE BLOCK_SIZE - sizeof(FileControlBlock) - sizeof(BlockHeader)
+#define FB_SPACE  BLOCK_SIZE - sizeof(BlockHeader)
 /*these are structures stored on disk*/
 
 // header, occupies the first portion of each block in the disk
