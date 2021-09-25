@@ -483,86 +483,132 @@ int SimpleFS_write(FileHandle* f, void* data, int size)
 		DiskDriver_writeBlock(disk, ffb, ffb->fcb.block_in_disk);
 		offset = 0;
     }
-    else //3 - pos fuori dall'ffb, bisogna proprio cambiare blocco
+    else offset -= FFB_SPACE;//3 - pos fuori dall'ffb, bisogna proprio cambiare blocco
+    
+    int next_block = ffb->header.next_block;
+
+    int block_in_disk = ffb->fcb.block_in_disk;
+	int block_in_file = ffb->header.block_in_file;
+	FileBlock temp;
+
+    int onlyblock = 0;
+    if(!next_block) onlyblock = 1;
+
+    while(written_bytes < size)
     {
-        offset -= FFB_SPACE;
-
-        int next_block = ffb->header.next_block;
-
-        int block_in_disk = ffb->fcb.block_in_disk;
-		int block_in_file = ffb->header.block_in_file;
-		FileBlock temp;
-
-        int onlyblock = 0;
-        if(!next_block) onlyblock = 1;
-
-        while(written_bytes < size)
+        if(!next_block) //non ci sono blocchi, lo creiamo
         {
-            if(!next_block) //non ci sono blocchi, lo creiamo
+            FileBlock new_fb = {0};
+		    new_fb.header.block_in_file = block_in_file + 1;
+		    new_fb.header.next_block = -1;
+		    new_fb.header.previous_block = block_in_disk;
+
+    		next_block = DiskDriver_getFreeBlock(disk,block_in_disk);
+
+            if(onlyblock == 1)
             {
-                FileBlock new_fb = {0};
-				new_fb.header.block_in_file = block_in_file + 1;
-				new_fb.header.next_block = -1;
-				new_fb.header.previous_block = block_in_disk;
-
-				next_block = DiskDriver_getFreeBlock(disk,block_in_disk);
-
-                if(onlyblock == 1)
-                {
-                    ffb->header.next_block = next_block;
-					DiskDriver_freeBlock(disk, block_in_disk);
-					DiskDriver_writeBlock(disk,ffb, block_in_disk); //ffb->fcb.block_in_disk;
-					onlyblock = 0;
-                }
-                else
-                {
-                    temp.header.next_block = next_block;
-					DiskDriver_freeBlock(disk, block_in_disk);
-					DiskDriver_writeBlock(disk,&temp, block_in_disk);
-                }
-                DiskDriver_writeBlock(disk, &new_fb, next_block);
-                temp = new_fb;
+                ffb->header.next_block = next_block;
+			    DiskDriver_freeBlock(disk, block_in_disk);
+			    DiskDriver_writeBlock(disk,ffb, block_in_disk); //ffb->fcb.block_in_disk;
+			    onlyblock = 0;
             }
             else
             {
-                if(DiskDriver_readBlock(disk,&temp,next_block) == -1) return -1;
-
-                if(offset < FB_SPACE && size <= FB_SPACE - offset)
-                {
-                    memcpy(temp.data+offset, (char*)data, FB_SPACE - offset);
-					written_bytes += btw;
-
-		            DiskDriver_freeBlock(disk, block_in_disk);
-					DiskDriver_writeBlock(disk, ffb, block_in_disk);
-					//DiskDriver_freeBlock(disk, block_in_disk);
-                    DiskDriver_freeBlock(disk, next_block);
-					DiskDriver_writeBlock(disk, &temp, next_block);
-
-					return written_bytes;
-                }
-                else if(offset < FB_SPACE && btw > FB_SPACE - offset)
-                {
-                    memcpy(temp.data+offset,(char*)data + written_bytes, FB_SPACE - offset);
-					written_bytes += FB_SPACE - offset;
-					btw = size - written_bytes;
-					DiskDriver_freeBlock(disk, block_in_disk);
-					DiskDriver_writeBlock(disk, &temp, next_block);
-					offset = 0;
-                }
-                else
-                {
-                    offset -= FB_SPACE;
-
-
-					block_in_disk = next_block;	// update index of current_block
-					next_block = temp.header.next_block;
-					block_in_file = temp.header.block_in_file; // update index of next_block
-                }
-                
+                temp.header.next_block = next_block;
+			    DiskDriver_freeBlock(disk, block_in_disk);
+			    DiskDriver_writeBlock(disk,&temp, block_in_disk);
             }
-        }//EOW
-        return written_bytes;
-    }
+            DiskDriver_writeBlock(disk, &new_fb, next_block);
+            temp = new_fb;
+        }
+        else if(DiskDriver_readBlock(disk,&temp,next_block) == -1) return -1;
 
+        if(offset < FB_SPACE && size <= FB_SPACE - offset)
+        {
+            memcpy(temp.data+offset, (char*)data, FB_SPACE - offset);
+			written_bytes += btw;
+
+	        DiskDriver_freeBlock(disk, block_in_disk);
+			DiskDriver_writeBlock(disk, ffb, block_in_disk);
+			//DiskDriver_freeBlock(disk, block_in_disk);
+            DiskDriver_freeBlock(disk, next_block);
+			DiskDriver_writeBlock(disk, &temp, next_block);
+
+			return written_bytes;
+        }
+        else if(offset < FB_SPACE && btw > FB_SPACE - offset)
+        {
+            memcpy(temp.data+offset,(char*)data + written_bytes, FB_SPACE - offset);
+			written_bytes += FB_SPACE - offset;
+			btw = size - written_bytes;
+			DiskDriver_freeBlock(disk, block_in_disk);
+			DiskDriver_writeBlock(disk, &temp, next_block);
+			offset = 0;
+        }
+        else offset -= FB_SPACE;
+
+		block_in_disk = next_block;	// update index of current_block
+		next_block = temp.header.next_block;
+		block_in_file = temp.header.block_in_file; // update index of next_block
+    }//EOW
+    return written_bytes;
 }
 
+
+int SimpleFS_read(FileHandle* f, void* data, int size)
+{
+    //invalid param check
+    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
+    if(data == NULL) handle_error_en("Invalid param (data)", EINVAL);
+    if(size < 0) handle_error_en("Invalid param (size)", EINVAL);
+
+    FirstFileBlock* ffb = f->fcb;
+    DiskDriver* disk = f->sfs->disk;
+    int offset = f->pos_in_file;
+    int bytes_read = 0;
+    int readable = size;
+
+    memset(data, '\0', size); 
+
+    if(offset < FFB_SPACE && size <= FFB_SPACE - offset)
+    {
+        memcpy(data, ffb->data + offset, size);
+        f->pos_in_file += size;
+        return size;
+    }
+    else if(offset < FFB_SPACE && size > FFB_SPACE - offset)
+    {
+        memcpy(data, ffb->data + offset, FFB_SPACE - offset);
+        bytes_read += FFB_SPACE - offset;
+        readable = size - bytes_read;
+        offset = 0;
+    }
+    else offset -= FFB_SPACE;
+
+    int next_block = ffb->header.next_block;
+    FileBlock temp;
+    while(readable < size && next_block != -1)
+    {
+        if(DiskDriver_readBlock(disk, &temp, next_block) == -1) return -1;
+
+        if(offset < FB_SPACE && size <= FB_SPACE - offset)
+        {
+            memcpy(data + bytes_read, temp.data + offset, readable);
+            bytes_read += readable;
+			readable = size - bytes_read;
+			f->pos_in_file = bytes_read;
+			return bytes_read;
+        }
+        else if(offset < FB_SPACE && size > FB_SPACE - offset)
+        {
+            memcpy(data + bytes_read, temp.data + offset, readable);
+            bytes_read += readable;
+			readable = size - bytes_read;
+            offset = 0;
+        }
+        else offset -= FB_SPACE;
+
+        next_block = temp.header.next_block;
+    }//EOW
+    return bytes_read;
+}
