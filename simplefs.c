@@ -434,8 +434,6 @@ FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
     //return NULL;
 }
 
-//-----------------------------------------------------------------------------------------------------
-
 // closes a file handle (destroyes it)
 int SimpleFS_close(FileHandle* f)
 {
@@ -611,4 +609,53 @@ int SimpleFS_read(FileHandle* f, void* data, int size)
         next_block = temp.header.next_block;
     }//EOW
     return bytes_read;
+}
+
+// returns the number of bytes read (moving the current pointer to pos)
+// returns pos on success
+// -1 on error (file too short)
+int SimpleFS_seek(FileHandle* f, int pos)
+{
+    if(f == NULL) handle_error_en("Invalid param (FileHandle)", EINVAL);
+    if(pos < 0) handle_error_en("Invalid param (pos)", EINVAL);
+
+    int size = 0;
+    FirstFileBlock* ffb = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+
+    if(DiskDriver_readBlock(f->sfs->disk, ffb, f->fcb->fcb.block_in_disk) == -1) handle_error_en("SimpleFS_seek: Error while reading block on disk", EIO);
+
+    size += sizeof(ffb->data);
+    
+    int next_block = ffb->header.next_block;
+    FileBlock temp;
+    while(next_block != -1)
+    {
+        if(DiskDriver_readBlock(f->sfs->disk, &temp, next_block) == -1) handle_error_en("SimpleFS_seek: Error while reading block on disk", EIO);
+        size += sizeof(temp.data);
+
+        next_block = temp.header.next_block;
+    }
+
+    if(pos > size)
+    {
+        free(ffb);
+        printf("SimpleFS_seek: file's too short, returning -1");
+        return -1;
+    }
+    f->pos_in_file = pos;
+    return pos;
+}
+
+// seeks for a directory in d. If dirname is equal to ".." it goes one level up
+// 0 on success, negative value on error
+// it does side effect on the provided handle
+int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
+{
+    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
+    if(dirname == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
+
+    if(strcmp(dirname, "..") == 0)
+    {
+        //torno a directory superiore, priorm check per vedere se sono già la root
+    }
 }
