@@ -654,8 +654,89 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
     if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
     if(dirname == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
 
-    if(strcmp(dirname, "..") == 0)
+    int ret = 0;
+    DiskDriver* disk = d->sfs->disk;
+
+    if(strcmp(dirname, "..") == 0)//torno a directory superiore, prior check per vedere se sono già la root
     {
-        //torno a directory superiore, priorm check per vedere se sono già la root
+        if(d->directory == NULL)
+        {
+            printf("SimpleFS_changeDir: we already in root directory, cannot proceed\n");
+            return -1;
+        }
+        
+        d->dcb = d->directory;
+        d->pos_in_block = 0;
+        d->pos_in_dir = 0;
+        int p_block = d->dcb->fcb.directory_block;
+
+        if(p_block == -1) //case: we in root now
+        {
+            d->directory = NULL;
+            return 0;
+        }
+
+        FirstDirectoryBlock* p = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock));
+        ret = DiskDriver_readBlock(disk, p, p_block);
+        if(ret == -1)
+        {
+            printf("SimpleFS_changeDir: cannot read parent directory of the directory you want to hop in\n");
+            d->directory = NULL;
+            return -1;
+        }
+        d->directory = p;
+        return 0;
     }
+    else if(d->dcb->num_entries <= 0)
+    {
+        printf("SimpleFS_changeDir: empty dir\n");
+        return -1;
+    }
+    //normal cd now
+    FirstDirectoryBlock* fdb = d->dcb;
+    FirstDirectoryBlock* temp = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock));
+
+    for(int i = 0; i < FDB_SPACE; i++)
+    {
+        if(fdb->file_blocks[i] > 0 && (DiskDriver_readBlock(disk,temp,fdb->file_blocks[i])) != -1)
+        {
+            if(strcmp(temp->fcb.name,dirname) == 0){
+					//DiskDriver_readBlock(disk,temp,fdb->file_blocks[i]);
+					d->pos_in_block = 0; 
+					d->directory = fdb;
+					d->dcb = temp;
+					return 0;
+				}
+        }
+    }
+
+    int next_block = fdb->header.next_block;
+
+    DirectoryBlock db;
+    while(next_block != -1)
+    {
+        ret = DiskDriver_readBlock(disk, &db, next_block);
+		if(ret == -1)
+        {
+			printf("SimpleFS_changeDir: cannot read the block\n");
+			return -1;
+		}
+
+        for(int i = 0; i < DB_SPACE; i++)
+        {
+            if(db.file_blocks[i] > 0 && (DiskDriver_readBlock(disk, temp, db.file_blocks[i])) != -1)
+            {
+                if(strcmp(temp->fcb.name,dirname) == 0){
+					//DiskDriver_readBlock(disk, temp, db.file_blocks[i]);
+					d->pos_in_block = 0; 
+					d->directory = fdb;
+					d->dcb = temp;
+					return 0;
+				}
+            }
+        }
+        next_block = db.header.next_block;
+    }
+    printf("SimpleFS_changeDir: cannot change directory\n");
+    return -1;
 }
