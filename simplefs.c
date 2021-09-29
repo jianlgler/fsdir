@@ -719,6 +719,7 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
 		if(ret == -1)
         {
 			printf("SimpleFS_changeDir: cannot read the block\n");
+            free(temp);
 			return -1;
 		}
 
@@ -739,4 +740,86 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
     }
     printf("SimpleFS_changeDir: cannot change directory\n");
     return -1;
+}
+
+// creates a new directory in the current one (stored in fs->current_directory_block)
+// 0 on success
+// -1 on error
+int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
+{
+    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
+    if(dirname == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
+
+    DiskDriver* disk = d->sfs->disk;
+    FirstDirectoryBlock* dcb = d->dcb;
+    FirstDirectoryBlock* temp = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock)); //o first file block?
+    if(temp == NULL){
+		printf("SimpleFS_mkDir: malloc (temp) error while creating FirstDirecotryBlock\n");
+		return -1;
+	}
+    //se la cartella non è vuota, devo controllare se voglio creare una cartella con un nome già utilizzato
+    if(d->dcb->num_entries > 0)
+    {
+        for(int i = 0; i < FDB_SPACE; i++)
+        {
+            if(dcb->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, temp, dcb->file_blocks[i])) != -1)
+            {
+                if(strcmp(temp->fcb.name, dirname) == 0)
+                {
+                    free(temp);
+                    printf("SimpleFS_mkDir: directory_name already exists, try another name\n");
+                    return -1;
+                }
+            }
+        }
+
+        DirectoryBlock db;
+        int next_block = dcb->header.next_block;
+
+        while(next_block != -1)
+        {
+            int ret = DiskDriver_readBlock(disk, &db, next_block);
+            if(ret == -1)
+            {
+                printf("SimpleFS_changeDir: cannot read the block\n");
+                free(temp);
+			    return -1;
+            }
+            for(int i = 0; i < DB_SPACE; i++)
+            {
+                if(db.file_blocks[i] > 0 && (DiskDriver_readBlock(disk, temp, db.file_blocks[i])) != -1)
+                {
+                    if(strcmp(temp->fcb.name, dirname) == 0)
+                    {
+                    free(temp);
+                    printf("SimpleFS_mkDir: directory_name already exists, try another name\n");
+                    return -1;
+                    }
+                }
+            }
+            next_block = db.header.next_block;
+        }
+    }
+    //check concluso, possiamo procedere con il creare la cartella
+    int nb = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
+    if(nb == -1)
+    {
+        printf("SimpleFS_mkDir: error while asking disk for a free block\n");
+        return -1;
+    }
+
+    FirstDirectoryBlock* to_create = (FirstDirectoryBlock*)malloc(sizeof(FirstDirectoryBlock));
+	if(to_create == NULL){
+		printf("SimpleFS_mkDir: (to_create) malloc error while creating FirstDirecotryBlock\n");
+		return -1;
+	}
+
+    to_create->header.next_block = -1; to_create->header.previous_block = -1; to_create->header.block_in_file = 0;
+
+    to_create->fcb.directory_block = dcb->fcb.block_in_disk; to_create->fcb.block_in_disk = nb; to_create->fcb.is_dir = 1;
+    to_create->fcb.size_in_blocks = 0; to_create->fcb.size_in_bytes = 0; to_create->num_entries = 0;
+	strcpy(to_create->fcb.name, dirname);
+
+    int block_number = dcb->fcb.block_in_disk;
+    //scrivere su disco la directory
 }
