@@ -832,31 +832,29 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
         printf("SimpleFS_mkDir: cannot write new block on disk\n");
         return -1;
     }
-
-    int check = 0;
-    int entry = 0;
     int block_in_file = 0;
-    int fdb_or_db_save = 0;
-	int fdb_or_max_free_space_db = 0;
+    int fdb_or_db = 0; //variabile utilizzata x capire se, nel caso non ci fosse un blocco libero nell'intera cartella, se doversi attaccari all'fdb o a un semplice db
 
-    if(dcb->num_entries < FFB_SPACE)
+    if(dcb->num_entries < FDB_SPACE)
     {
-        for(int i = 0; i < dcb->num_entries; i++)
+        for(int i = 0; i < FDB_SPACE; i++)
         {
             if(dcb->file_blocks[i] == 0)
             {
-                check = 1;
-                entry = i;
-                break;
+                dcb->num_entries++;
+		        dcb->file_blocks[i] = nb;
+			    //update free then write
+		        DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
+		        DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
+                return 0;
             }
         }
     }
     else
     {
-        fdb_or_max_free_space_db = 1;
         int next = dcb->header.next_block;
         
-        while(next != -1 && !check)
+        while(next != -1)
         {
             ret = DiskDriver_readBlock(disk, &db, next);
             if(ret == -1)
@@ -868,68 +866,66 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
             block_in_file++;
             block_number = next;
 
-            for(int i = 0; i < dcb->num_entries; i++)
+            for(int i = 0; i < DB_SPACE; i++)
             {
                 if(db.file_blocks[i] == 0)
                 {
-                    check = 1;
-                    entry = i;
-                    break;
+                    dcb->num_entries++;
+
+                    DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
+		            DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
+		            db.file_blocks[i] = nb;
+                    DiskDriver_freeBlock(disk, block_number);
+		            DiskDriver_writeBlock(disk, &db, block_number);
+                    return 0;
                 }
             }
-            fdb_or_db_save = 1;
+            fdb_or_db = 1;
 			next = db.header.next_block;
         }
-        
-    } //endelse
+    } 
 
-    if(!check)
+    DirectoryBlock new_db = {0};
+	new_db.header.previous_block = block_number;
+	new_db.header.next_block = -1;
+	new_db.header.block_in_file = block_in_file;
+	new_db.file_blocks[0] = nb;
+
+    int nd_block = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
+	if(nd_block == -1)
     {
-        DirectoryBlock new_db = {0};
-		new_db.header.previous_block = block_number;
-		new_db.header.next_block = -1;
-		new_db.header.block_in_file = block_in_file;
-		new_db.file_blocks[0] = nb;
-
-        int nd_block = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
-		if(nd_block == -1)
-        {
-			printf("Cannot get a new free block: SimpleFS_mkDir\n");
-			DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
-			return -1;
-		}
-		ret = DiskDriver_writeBlock(disk, &new_db, nd_block); //scrivo il blocco su disco
-		if(ret == -1)
-        {
-			printf("Cannot write new_dir_block on the disk: SimpleFS_mkDir\n" );
-			DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
-			return -1;
-		}
-
-        if(fdb_or_db_save == 0) dcb->header.next_block = nd_block;
-		else db.header.next_block = nd_block;
-			
-		db = new_db;
-		block_number = nd_block;
-    }
-    if(fdb_or_max_free_space_db == 0)
-    {  //c'è spazio nel FirstDirectoryBlock
-		dcb->num_entries++;
-		dcb->file_blocks[entry] = nb;
-			//update free then write
+		printf("Cannot get a new free block: SimpleFS_mkDir\n");
 		DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
-		DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
+		return -1;
 	}
-    else
+
+	ret = DiskDriver_writeBlock(disk, &new_db, nd_block); //scrivo il blocco su disco
+	if(ret == -1)
     {
-		dcb->num_entries++;
-
-        DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
-		DiskDriver_writeBlock(disk, dcb, dcb->fcb.block_in_disk);
-		db.file_blocks[entry] = nb;
-        DiskDriver_freeBlock(disk, block_number);
-		DiskDriver_writeBlock(disk, &db, block_number);
+		printf("Cannot write new_dir_block on the disk: SimpleFS_mkDir\n" );
+		DiskDriver_freeBlock(disk, dcb->fcb.block_in_disk);
+		return -1;
 	}
 
+    if(fdb_or_db == 0) dcb->header.next_block = nd_block;
+	else db.header.next_block = nd_block;
+			
+	//db = new_db;
+	//block_number = nd_block; codice inutile
+    
 	return 0;
 }
+
+// removes the file in the current directory
+// returns -1 on failure 0 on success
+// if a directory, it removes recursively all contained files
+int SimpleFS_remove(SimpleFS* fs, char* filename)
+{
+    if(fs == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
+    if(filename == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
+
+    
+
+    return 0;
+}
+  
