@@ -919,13 +919,195 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
 // removes the file in the current directory
 // returns -1 on failure 0 on success
 // if a directory, it removes recursively all contained files
-int SimpleFS_remove(SimpleFS* fs, char* filename)
+int SimpleFS_remove(DirectoryHandle* d, char* filename)
 {
-    if(fs == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
+    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
     if(filename == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
 
-    
+    DiskDriver* disk = d->sfs->disk;
+    FirstDirectoryBlock* fdb = d->dcb;
 
-    return 0;
+    if(fdb->num_entries < 1)
+    {
+		printf("SimpleFS_remove: empty directory.\n");
+		return -1;
+	}
+
+    FirstFileBlock ffb;
+    int id = -1;
+    int entry = -1;
+    for(int i = 0; i < FDB_SPACE; i++)
+    {
+        if(fdb->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, &ffb, fdb->file_blocks[i])) != -1)
+        {
+            if(strcmp(filename, ffb.fcb.name) == 0)
+            {   
+                entry = i;
+                id = fdb->file_blocks[i];
+                break;
+            }
+        }
+    }
+    int firstfound = 1; //significa che il file è stato trovato nel fdb
+
+    DirectoryBlock* db = (FirstDirectoryBlock*) malloc(sizeof(DirectoryBlock));
+
+    int next = fdb->header.next_block;
+	int block_in_disk = fdb->header.block_in_file;
+
+    while(id == -1 && next) //id = -1 significa che non sta nell'fdb
+    {
+        firstfound = 0;
+        int ret = DiskDriver_readBlock(disk, &db, next);
+        if(ret == -1)
+        {
+            printf("SimpleFS_remove: cannot read block\n");
+            free(db);
+		    return -1;
+        }
+
+        for(int i = 0; i < DB_SPACE; i++)
+        {
+            if(db->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, &ffb, db->file_blocks[i])) != -1)
+            {
+                if(strcmp(filename, ffb.fcb.name) == 0)
+                {
+                    entry = i;
+                    id = db->file_blocks[i];
+                    break;
+                }
+            }
+        }
+        block_in_disk = next;
+        next = db->header.next_block;
+    }
+
+    if(id == -1)
+    {
+        printf("SimpleFS_remove: file does not exist!\n");
+        free(db);
+		return -1;
+    }
+
+    FirstFileBlock kill;
+    if(DiskDriver_readBlock(disk, &kill, id) == -1)
+    {
+        printf("SimpleFS_remove: cannot read file to kill\n");
+        free(db);
+        return -1;
+    } 
+
+    if(!kill.fcb.is_dir) //eliminazioe file
+    {
+        FileBlock aux;
+        next = kill.header.next_block; //prima era ridefinito
+        int block = id;
+
+        while(next != -1)
+        {
+            if(DiskDriver_readBlock(disk, &aux, next) == -1) return -1;
+			block = next;
+			next = aux.header.next_block;
+			DiskDriver_freeBlock(disk, block);
+        }
+        if(DiskDriver_freeBlock(disk, id) == -1)
+        {
+            printf("SimpleFS_remove: cannot free the block\n");
+            free(db);
+		    return -1;
+        }
+
+        d->dcb = fdb;
+    }
+
+    else //eliminazione cartella e file all'interno
+    {
+        FirstDirectoryBlock fdb_kill;
+        if(DiskDriver_readBlock(disk, &fdb_kill, id) == -1)
+        {
+            printf("SimpleFS_remove: cannot read dir to kill\n");
+            free(db);
+            return -1;
+        } 
+
+        if(fdb_kill.num_entries < 1) //cartella vuota
+        {
+            if(DiskDriver_freeBlock(disk, id) == -1)
+                {
+                    printf("SimpleFS_remove: cannot free the block\n");
+                    free(db);
+		            return -1;
+                }
+
+            d->dcb = fdb;
+        }
+        else //cartella !vuota
+        {
+            //entro nella cartella x eliminarne i file
+            if(SimpleFS_changeDir(d, fdb_kill.fcb.name) == -1)
+            {
+                printf("SimpleFS_remove: cannot jump into the dir to kill its files\n");
+                free(db);
+		        return -1;
+            }
+
+            for(int i = 0; i < FDB_SPACE; i++)
+            {   //chiamata ricorsiva
+                if(fdb_kill.file_blocks[i] > 0 && DiskDriver_readBlock(disk,&ffb, fdb_kill.file_blocks[i]) != -1) SimpleFS_remove(d,ffb.fcb.name);
+            }
+
+            next = fdb_kill.header.next_block;
+            int block = id;
+            DirectoryBlock db_aux;
+            while(next)
+            {
+                if(DiskDriver_readBlock(disk, &db_aux, next) == -1)
+                {
+                    printf("SimpleFS_remove: cannot read dirblock\n");
+                    free(db);
+		            return -1;
+                }
+                for(int i = 0; i < DB_SPACE; i++)
+                {
+					FirstFileBlock ffb_rec;
+
+					if(DiskDriver_readBlock(disk, &ffb_rec, db_aux.file_blocks[i]) == -1)
+                    {
+                        printf("SimpleFS_remove: cannot read ffb_rec\n");
+                        free(db);
+                        return -1;
+                    } 
+					SimpleFS_remove(d, ffb_rec.fcb.name);
+				}
+				block_in_disk = next;
+				next = db_aux.header.next_block;
+				DiskDriver_freeBlock(disk,block_in_disk);
+            }
+            DiskDriver_freeBlock(disk, id);
+			d->dcb = fdb;
+        }
+
+    }
+    if(!firstfound)
+    {
+        	db->file_blocks[entry] = -1;
+			fdb->num_entries -= 1;
+      
+            DiskDriver_freeBlock(d->sfs->disk, block_in_disk);
+			DiskDriver_writeBlock(d->sfs->disk, db, block_in_disk);
+            DiskDriver_freeBlock(d->sfs->disk, fdb->fcb.block_in_disk);
+			DiskDriver_writeBlock(d->sfs->disk, fdb, fdb->fcb.block_in_disk);
+			return 0;
+    }
+    else
+    {
+        fdb->file_blocks[id] = -1;
+		fdb->num_entries-=1;
+     
+        DiskDriver_freeBlock(disk, fdb->fcb.block_in_disk);
+		DiskDriver_writeBlock(disk, fdb, fdb->fcb.block_in_disk);
+		return 0;
+    }
+    
 }
   
