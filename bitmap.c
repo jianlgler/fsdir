@@ -21,7 +21,7 @@ BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memo
 }
 
 // converts a bit to a linear index
-int BitMap_indexToBlock(int entry, uint8_t bit_num)
+int BitMap_indexToBlock(int entry, uint8_t bit_num) //op inversa
 {
     if(entry < 0)   handle_error_en("[PARAM ERROR], entry", (int) EINVAL);
     
@@ -61,13 +61,23 @@ int BitMap_get(BitMap* bmap, int start, int status)
 // torna -1 in caso di errore, 0 altrimenti
 int BitMap_set(BitMap* bmap, int pos, int status) 
 {   
-    if(status != 0 && status != 1) handle_error_en("[PARAM ERROR], status", (int) EINVAL);
+    if(status != 0 && status != 1) 
+    {
+        printf("[PARAM ERROR], status, return value = -1\n");
+        return -1;
+    }
     
-    if(pos > bmap -> num_bits || pos < 0 ) handle_error_en("[PARAM ERROR], pos", (int) EINVAL);
+    if(pos > bmap -> num_bits || pos < 0 )
+    {
+        printf("[PARAM ERROR], pos, return value = -1\n");
+        return -1;
+    }
+    if(bmap == NULL) 
+    {
+        printf("[PARAM ERROR], bmap, return value = -1\n");
+        return -1;
+    }
     
-    if(bmap == NULL) handle_error_en("[PARAM ERROR], null_bitmap", (int) EINVAL);
-    
-
     BitMapEntryKey entry = BitMap_blockToIndex(pos);
 
     unsigned char mask = 1 << entry.bit_num; //not sure da provare
@@ -75,16 +85,8 @@ int BitMap_set(BitMap* bmap, int pos, int status)
     //X AND 1 ---> if x == 1 torna 1 else torna 0
     
     //fin qui tutto ok
-    if(status)
-    {
-        
-        bmap->entries[entry.entry_num] |= mask; //non so perchè questa istruzione porta a segfault
-        
-    }
-    else 
-    {
-        bmap->entries[entry.entry_num] &= ~(mask);
-    }
+    if(status) bmap->entries[entry.entry_num] |= mask; //setting a bit
+    else bmap->entries[entry.entry_num] &= ~(mask);    //clearing a bit
 
     return 0;
 }

@@ -27,6 +27,8 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 
     int fd, ret;
 
+    DiskHeader* hdr = NULL;
+
     int bitmap_size = (num_blocks / BYTE_DIM) + 1; // calculates how big the bitmap should be
 
     size_t header_size = sizeof(DiskHeader) + bitmap_size;
@@ -41,14 +43,15 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         if(fd == -1) handle_error("Error opening file, fd is -1, A"); 
         //ensuring disk space
         
-        ret = posix_fallocate(fd, 0, header_size);
+        /*ret = posix_fallocate(fd, 0, header_size);
         
         if(ret)  
         {
             close(fd);
             handle_error_en("Error f-allocating", ret); //fallocate non setta errno
-        }
-        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);
+        }*/
+
+        hdr = DiskDriver_initialize_header(hdr, fd, header_size);
 
         disk->header = hdr;
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore alla mappa, skippo header
@@ -72,8 +75,8 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);  
          // if the file was new compiles a disk header, and fills in the bitmap of appropriate size with all 0 (to denote the free space);
         hdr->num_blocks = num_blocks;
-        hdr->bitmap_blocks = bitmap_size;
-        hdr->bitmap_entries = num_blocks;
+        hdr->bitmap_blocks = num_blocks;
+        hdr->bitmap_entries = bitmap_size;
         hdr->free_blocks = num_blocks;
         hdr->first_free_block = 0;
 
@@ -85,10 +88,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         //memset(disk->bitmap_data, '0', bitmap_size);
     }
 
-    printf("Disk driver initialized, proceding.\n");
-    printf("Disk driver initialized, proceding..\n");
-    printf("Disk driver initialized, proceding...\n");
-
+    printf("Disk driver initialized, proceding."); printf("."); printf(".\n");
 }
 
 /*
@@ -213,8 +213,8 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
         printf("Impossibile liberare il blocco desiderato"); return -1;
     }
 
-    disk->header->free_blocks += 1;
-    
+    disk->header->free_blo cks += 1;
+
     if(block_num < disk->header->first_free_block) disk->header->first_free_block = block_num;
    
     return 0; 
