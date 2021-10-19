@@ -11,9 +11,7 @@
 // converts a block index to an index in the array,
 // and a char that indicates the offset of the bit inside the array
 BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memoria
-{
-    if(num < 0) handle_error_en("[PARAM ERROR], num", (int) EINVAL);
-
+{ 
     BitMapEntryKey entry_k;
     entry_k.entry_num = num / BYTE_DIM; //indice entry 
     entry_k.bit_num = num % BYTE_DIM; //spiazzamento (resto divisione)
@@ -23,9 +21,16 @@ BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memo
 // converts a bit to a linear index
 int BitMap_indexToBlock(int entry, uint8_t bit_num) //op inversa
 {
-    if(entry < 0)   handle_error_en("[PARAM ERROR], entry", (int) EINVAL);
-    
-    if(bit_num < 0) handle_error_en("[PARAM ERROR], bit_num", (int) EINVAL);
+    if(entry < 0)
+    {
+        printf("[PARAM ERROR], entry, return value is -1");
+        return -1;
+    }
+    if(bit_num < 0)
+    {
+        printf("[PARAM ERROR], bit_num, return value is -1");
+        return -1;
+    }
     
     return (entry * BYTE_DIM) + bit_num;
 }
@@ -34,11 +39,23 @@ int BitMap_indexToBlock(int entry, uint8_t bit_num) //op inversa
 // in the bitmap bmap, and starts looking from position start
 int BitMap_get(BitMap* bmap, int start, int status)
 {
-    if(status != 0 && status != 1) handle_error_en("[PARAM ERROR], status", (int) EINVAL);
+    if(status != 0 && status != 1) 
+    {
+        printf("[PARAM ERROR], status, return value is -1");
+        return -1;
+    }
     
-    if(start > bmap -> num_bits || start < 0 ) handle_error_en("[PARAM ERROR], start", (int) EINVAL);
+    if(start > bmap -> num_bits || start < 0 ) 
+    {
+        printf("[PARAM ERROR], start, return value is -1");
+        return -1;
+    }
     
-    if(bmap == NULL) handle_error_en("[PARAM ERROR], null_bitmap", (int) EINVAL);
+    if(bmap == NULL) 
+    {
+        printf("[PARAM ERROR], bitmap, return value is -1");
+        return -1;
+    }
     
     //scorro il block index, ogni volta mi prendo l'entry key della quale faccio un bit-check
     for(int i = start; i < bmap->num_bits; i++)
@@ -96,8 +113,9 @@ void BitMap_print(BitMap* bm)
 {
     if(bm == NULL)
     {
-        handle_error_en("[PARAM ERROR], null_bitmap", (int) EINVAL);
-    } 
+        printf("[PARAM ERROR], bitmap is null, nothing to be done, returning");
+        return;
+    }
 
     for(int i = 0; i < bm -> num_bits; i++)
     {

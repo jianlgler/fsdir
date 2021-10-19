@@ -15,7 +15,8 @@ DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t
     if(disk_header == MAP_FAILED)
     {   
         close(fd);
-        handle_error("Error while mapping");
+        printf("Error while mapping, returning NULL-value\n");
+        return NULL;
     } 
     return disk_header;
 }
@@ -23,7 +24,11 @@ DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t
 //DECOMMENTARE
 void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 {
-    if(num_blocks < 0 || disk == NULL) handle_error_en("Invalid param", EINVAL);
+    if(num_blocks < 0 || disk == NULL)
+    {
+        printf("Invalid param, returning\n");
+        return;
+    } 
 
     int fd, ret;
 
@@ -40,7 +45,11 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         
         fd = open(filename, O_RDWR , 0666);
         
-        if(fd == -1) handle_error("Error opening file, fd is -1, A"); 
+        if(fd == -1)
+        {
+            printf("Error opening file, fd is -1, A\n");
+            return;
+        } 
         //ensuring disk space
         
         /*ret = posix_fallocate(fd, 0, header_size);
@@ -63,13 +72,18 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
     else //to create
     {
         fd = open(filename, O_CREAT | O_RDWR | O_TRUNC , 0666);
-        if(fd == -1) handle_error("Error opening file, fd is -1, B"); 
+        if(fd == -1)
+        {
+            printf("Error opening file, fd is -1, B\n");
+            return;
+        } 
 
         ret = posix_fallocate(fd, 0, header_size);
         if(ret)  
         {
             close(fd);
-            handle_error_en("Error f-allocating", ret);
+            printf("Error f-allocating, returning\n");
+            return;
         }
 
         DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);  
@@ -101,15 +115,27 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 // 0 otherwise
 int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 {   
-    if(block_num < 0 || block_num >= disk->header->num_blocks ) handle_error_en("Invalid param (block_num)", EINVAL);
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
-    if(dest == NULL) handle_error_en("Invalid param (dest)", EINVAL); //gestione errori argomenti
+    if(block_num < 0 || block_num >= disk->header->num_blocks )
+    {
+        printf("Invalid param (block_num), returning -1");
+        return -1;
+    }
+    if(disk == NULL)
+    {
+        printf("Invalid param (disk), returning -1");
+        return -1;
+    }
+    if(dest == NULL)
+    {
+        printf("Invalid param (dest), returning -1");
+        return -1;
+    }
 
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
 
-    if(BitMap_get(&bm, block_num, 0) == block_num)
+    if(BitMap_get(&bm, block_num, 0) == block_num) //cerco un blocco libero (== 0) partendo proprio da block num
     {
         printf("Block is free, returning -1\n");
         return -1; //blocco libero, nulla da leggere
@@ -118,7 +144,10 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
     int pos = sizeof(DiskHeader) + disk->header->bitmap_entries + (block_num*BLOCK_SIZE);
     //mi sposto all'offset e leggo byte per byte un blocco
 
-    if(lseek(fd, pos, SEEK_SET) == -1) handle_error("Invalid offset");
+    if(lseek(fd, pos, SEEK_SET) == -1) 
+    {
+        printf("FSEEK_error: Invalid offset, %d, returning -1\n", pos);
+    }
 
     int ret, bytes_reads = 0;
     
@@ -127,8 +156,15 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
         //lettura byte x byte blocco dim fissa
 		ret = read(fd, dest + bytes_reads, BLOCK_SIZE - bytes_reads);
 
-		if (ret == -1 && errno == EINTR) continue;
-        if (ret == -1) handle_error("Error while reading");
+		if (ret == -1)
+        {
+            if(errno == EINTR) continue;
+            else
+            {
+                printf("Error while reading, returning -1\n");
+                return -1;
+            }
+        }
 		if (ret == 0) break;
 		
 		bytes_reads +=ret;
@@ -144,9 +180,21 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 //DECOMMENTARE
 int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
 {
-    if(block_num < 0 || block_num >= disk->header->num_blocks ) handle_error_en("Invalid param (block_num)", EINVAL);
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
-    if(src == NULL) handle_error_en("Invalid param (dest)", EINVAL);    //gestione errori argomenti
+    if(block_num < 0 || block_num >= disk->header->num_blocks )
+    {
+        printf("Invalid param (block_num), returning -1\n");
+        return -1;
+    }
+    if(disk == NULL)
+    {
+        printf("Invalid param (disk), returning -1\n");
+        return -1;
+    }
+    if(src == NULL) 
+    {
+        printf("Invalid param (src), returning -1\n");
+        return -1;
+    }
 
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
@@ -161,15 +209,26 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
     int pos = sizeof(DiskHeader) + disk->header->bitmap_entries + (block_num*BLOCK_SIZE);
     //mi sposto all'offset e leggo byte per byte un blocco
 
-    if(lseek(fd, pos, SEEK_SET) == -1) handle_error("Invalid offset");
+    if(lseek(fd, pos, SEEK_SET) == -1) 
+    {
+        printf("FSEEK_error: Invalid offset, %d, returning -1\n", pos);
+        return -1;
+    }
 
     int ret, bytes_w = 0;
 
     while (bytes_w < BLOCK_SIZE) 
     {
         ret = write(fd, src + bytes_w, BLOCK_SIZE - bytes_w);
-        if (ret == -1 && errno == EINTR) continue;
-        if (ret == -1) handle_error("Cannot write to the socket");
+        if (ret == -1)
+        {
+            if(errno == EINTR) continue;
+            else
+            {
+                printf("Error while reading, returning -1\n");
+                return -1;
+            }
+        }
         bytes_w += ret;
     }
     if(ret != BLOCK_SIZE)
@@ -193,8 +252,17 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
 // returns -1 if operation not possible
 int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
 {
-    if(block_num < 0 || block_num >= disk->header->num_blocks ) handle_error_en("Invalid param (block_num)", EINVAL);
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
+    if(block_num < 0 || block_num >= disk->header->num_blocks ) 
+    {
+        printf("Invalid param (block_num), returning -1\n");
+        return -1;
+    }
+    if(disk == NULL)
+    {
+        printf("Invalid param (disk), returning -1\n");
+        return -1;
+    }
+    
 
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
@@ -202,7 +270,7 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
 
     if(BitMap_get(&bm, block_num, 0) == block_num)
     {
-        printf("Block already free, no action needed\n"); return 0; //blocco già in utilizzo, nulla da leggere
+        printf("Block already free, no action needed\n"); return 0; 
     }
 
     int ret;
@@ -213,7 +281,7 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
         printf("Impossibile liberare il blocco desiderato"); return -1;
     }
 
-    disk->header->free_blo cks += 1;
+    disk->header->free_blocks += 1;
 
     if(block_num < disk->header->first_free_block) disk->header->first_free_block = block_num;
    
@@ -223,23 +291,44 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
 // returns the first free block in the disk from position (checking the bitmap)
 int DiskDriver_getFreeBlock(DiskDriver* disk, int start)
 {
-    if(start < 0 || start > disk->header->num_blocks) handle_error_en("Invalid param (start)", EINVAL);
+    if(start < 0 || start > disk->header->num_blocks) 
+    {
+        printf("Invalid param (start), returning -1\n");
+        return -1;
+    }
     //printf("OOOK2\n");
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
+    if(disk == NULL) 
+    {
+        printf("Invalid param (disk), returning -1\n");
+        return -1;
+    }
     
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
     
-    return BitMap_get(&bm, start, 0);
+    int ret = BitMap_get(&bm, start, 0);
+    if(ret == -1)
+    {
+        printf("NO free block, returning -1\n");
+        return -1;
+    }
 }
 
 // writes the data (flushing the mmaps)
 int DiskDriver_flush(DiskDriver* disk)
 {
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
+    if(disk == NULL)
+    {
+        printf("Invalid param (disk), returning -1\n");
+        return -1;
+    }
 
     printf("Flushing...\n");
+   
+    int size = sizeof(DiskHeader) + (disk->header->num_blocks / BYTE_DIM) + 1;
+    //controllare correttezza size
+
     /*
        Without use of this call, there is no guarantee that changes are
        written back before munmap(2) is called.  To be more precise, the
@@ -247,17 +336,22 @@ int DiskDriver_flush(DiskDriver* disk)
        addr and having length length is updated.
     */
 
-   int size = sizeof(DiskHeader) + (disk->header->num_blocks / BYTE_DIM) + 1;
-   //controllare correttezza size
+    if(msync(disk->header, size, MS_SYNC) == -1)
+    {
+        printf("Cannot execute msync, returning -1\n");
+        return -1;
+    } 
 
-   if(msync(disk->header, size, MS_SYNC) == -1) handle_error("Cannot execute msync");
-
-   return 0;
+    return 0;
 }
 
 void DiskDriver_print(DiskDriver* disk)
 {
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
+    if(disk == NULL)
+    {
+        printf("Invalid param (disk), returning\n");
+        return -1;
+    }
 
     DiskHeader* hdr = disk->header;
     int free_space = (hdr->free_blocks)*BLOCK_SIZE;
