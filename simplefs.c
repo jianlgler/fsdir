@@ -255,7 +255,7 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 
         if(fdb_or_db == 0 ) //change pos in next block (fdb or db)
         {		
-		    fdb->header.next_block = free_db 
+		    fdb->header.next_block = free_db;
 		} 
         else
         {	
@@ -443,6 +443,13 @@ int SimpleFS_close(FileHandle* f)
     free(f);
 
     return 0;
+}
+
+int SimpleFS_free_dir(DirectoryHandle* f){
+	if(f->dcb != NULL) free(f->dcb);
+	if(f->directory != NULL) free(f->directory);
+	free(f);
+	return 0;
 }
 
 // writes in the file, at current position for size bytes stored in data

@@ -52,3 +52,5 @@ int DiskDriver_flush(DiskDriver* disk);
 
 //initialize header
 DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t size);
+
+void DiskDriver_print(DiskDriver* disk);

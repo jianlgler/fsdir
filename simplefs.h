@@ -147,4 +147,4 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname);
 // if a directory, it removes recursively all contained files
 int SimpleFS_remove(DirectoryHandle* d, char* filename);
   
-
+int SimpleFS_free_dir(DirectoryHandle* f); //just like SimpleFS_close but for directories
