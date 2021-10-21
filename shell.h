@@ -9,5 +9,5 @@ void FS_mkdir(int argc, char* argv[2]);
 void FS_touch(int argc, char* argv[2]);
 void FS_cd(int argc, char* argv[2]);
 void FS_ls();
-
-void FS_updatePath(char* np); //update current path with new path
+void FS_wr(int argc, char* argv[2], int start_pos);
+void FS_rd(int argc, char* argv[2]);

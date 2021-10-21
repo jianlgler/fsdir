@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <signal.h>
 #include <unistd.h> 
 
 #include "shell.h"
@@ -11,6 +12,8 @@
 SimpleFS* fs;
 DiskDriver* disk;
 DirectoryHandle* cur;
+
+const char* filename = "./my_file.txt";
 
 DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simple_fs)
 {
@@ -26,7 +29,7 @@ DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simp
     return dh;
 }
 
-void FS_abortion(int signal)
+void FS_abortion(int dummy)
 {
     printf("\nClosing"); printf("."); printf("."); printf(".\n");
 
@@ -164,4 +167,141 @@ void FS_ls()
     free(names);
     free(flags);
     printf("\n");
+}
+
+void FS_wr(int argc, char* argv[2], int start_pos)
+{
+    if(start_pos < 0)
+    {
+        printf("wr_error: wrong starting position \n");
+        return;
+    } 
+
+    if(argc != 2)
+    {
+        printf("wr_error: you must use 'wr <file_name>' \n");
+        return;
+    } 
+
+    FileHandle* fh = SimpleFS_openFile(cur, argv[1]);
+    if(fh == NULL)
+    {
+        printf("wr_error: cannot open %s \n", argv[1]);
+        return;
+    }
+
+    if(SimpleFS_seek(fh, start_pos) == -1)
+    {
+        printf("wr_error: cannot jump to starting position \n", argv[1]);
+        SimpleFS_close(fh);
+        return;
+    }
+
+    printf("\n>");
+    char* t = (char*) malloc(sizeof(BLOCK_SIZE));
+    fgets(t, BLOCK_SIZE, stdin);
+
+    if (SimpleFS_write(fh, t, strlen(t)) == -1) 
+    {
+        printf("wr_error: error while writeing\n");
+        free(t);
+        SimpleFS_close(fh);
+        return;
+    }
+
+    free(t);
+    SimpleFS_close(fh);
+}
+
+void FS_rd(int argc, char* argv[2])
+{
+    if(argc != 2)
+    {
+        printf("rd_error: you must use 'rd <file_name>' \n");
+        return;
+    } 
+
+    FileHandle* fh = SimpleFS_openFile(cur, argv[1]);
+    if(fh == NULL)
+    {
+        printf("rd_error: cannot open %s \n", argv[1]);
+        return;
+    }
+
+    char* text = (char*) malloc(BLOCK_SIZE*sizeof(char));
+     if(text == NULL)
+     {
+		printf("rd_error: cannot allocate memory for text\n");
+		SimpleFS_close(fh);
+		return;
+	}
+    
+    int size = fh->fcb->fcb.size_in_bytes;
+    if (SimpleFS_read(fh, text, size) == -1) 
+    {
+        printf("rd_error: cannot read from file\n");
+        free(text);
+        SimpleFS_close(fh);
+        return;
+    }
+	
+	text[size - 1] = '\0';
+    printf("%s \n",text);
+
+    free(text);
+    SimpleFS_close(fh);
+}
+
+int main(int argc, int argv[2])
+{
+    signal(SIGINT, FS_abortion);
+
+    fs = (SimpleFS*) malloc(sizeof(SimpleFS));
+    if(fs == NULL)
+    {
+        printf("shell_error: malloc on SimpleFS, returning -1\n");
+        return -1;
+    }
+
+    disk = (DiskDriver*) malloc(sizeof(DiskDriver*));
+    if(disk == NULL)
+    {
+        printf("shell_error: malloc on DiskDriver, returning -1\n");
+        free(fs);
+        return -1;
+    }
+
+
+    cur = FS_setup(filename, disk, fs);
+    if(cur == NULL)
+    {
+        printf("shell_error: cannot setup the filesystem, returning -1\n");
+        free(disk);
+        free(fs);
+        return -1;
+    }
+
+    char welcome[] = "Welcome";
+
+    for(int i = 0; i < strlen(welcome); i++)
+    {
+        printf("%c", welcome[i]);
+    } 
+    sleep(1000);
+    printf("\t;)\n");
+
+    printf("Type 'help' for command list\n");
+
+    char cmd[256];
+
+    while(1)
+    {
+        printf("%s$", cur->dcb->fcb.name);
+
+        fgets(cmd, 256, stdin);
+
+        char* argv[2] = NULL;
+        argv[0] = strtok(cmd, " ");
+        argv[1] = strtok(NULL, "\n");
+    }
 }
