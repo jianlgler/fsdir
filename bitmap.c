@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "bitmap.h"
-#include "common.h"
 
 #define BYTE_DIM 8
 
@@ -62,14 +61,14 @@ int BitMap_get(BitMap* bmap, int start, int status)
     {
         BitMapEntryKey entry = BitMap_blockToIndex(i);
         int index = entry.entry_num;
-        int bit = (bmap -> entries[index] >> entry.bit_num) & 0x01;
+        int bit = bmap -> entries[index] >> entry.bit_num & 0x01;
         //X AND 1 ---> if x == 1 torna 1 else torna 0
         if( bit == status) return i; 
         //se non va and 1 provare and 0x01 
     }
 
-    printf("No block with status %d...", status);
-    printf("Return value = -1\n"); 
+    /*printf("No block with status %d...", status);
+    printf("Return value = -1\n"); */
     return -1;
 
 }

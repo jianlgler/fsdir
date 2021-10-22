@@ -245,6 +245,7 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
     disk->header->free_blocks -= 1;
     
     disk->header->first_free_block = DiskDriver_getFreeBlock(disk, block_num + 1);
+
     return 0; 
 }
 
@@ -306,13 +307,16 @@ int DiskDriver_getFreeBlock(DiskDriver* disk, int start)
     BitMap bm;
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
-    
-    int ret = BitMap_get(&bm, start, 0);
-    if(ret == -1)
+
+    //printf("[TEST]Next free block is %d\n", disk->header->first_free_block);
+
+
+    if(disk->header->first_free_block == -1)
     {
         printf("NO free block, returning -1\n");
         return -1;
     }
+    return BitMap_get(&bm, start, 0);;
 }
 
 // writes the data (flushing the mmaps)
@@ -350,7 +354,7 @@ void DiskDriver_print(DiskDriver* disk)
     if(disk == NULL)
     {
         printf("Invalid param (disk), returning\n");
-        return -1;
+        return;
     }
 
     DiskHeader* hdr = disk->header;

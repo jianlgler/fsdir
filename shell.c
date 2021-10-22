@@ -303,5 +303,28 @@ int main(int argc, int argv[2])
         char* argv[2] = NULL;
         argv[0] = strtok(cmd, " ");
         argv[1] = strtok(NULL, "\n");
+
+        int argc = (argv != NULL) ? 2 : 1;
+
+        if (strcmp(argv[0], "mkdir") == 0) FS_mkdir(argc, argv); 
+        if (strcmp(argv[0], "ls") == 0) FS_ls(); 
+        if (strcmp(argv[0], "cd") == 0) FS_cd(argc, argv); 
+        if (strcmp(argv[0], "wr") == 0) 
+        {
+            int start = 0;
+            printf("\n>Insert starting position\t");
+            scanf("%d", &start);
+            FS_wr(argc, argv, start); 
+            printf("\n");
+        }
+        if (strcmp(argv[0], "rd") == 0) FS_rd(argc, argv); 
+        if (strcmp(argv[0], "rm") == 0) FS_rm(argc, argv); 
+        if (strcmp(argv[0], "touch") == 0) FS_touch(argc, argv); 
+        if (strcmp(argv[0], "status") == 0) FS_status(); 
+        if (strcmp(argv[0], "quit") == 0) FS_help(); 
+        if (strcmp(argv[0], "help") == 0) FS_abortion(SIGINT); 
+        else printf("\n>Invalid cmd!\n");
     }
+
+    return 0;
 }
