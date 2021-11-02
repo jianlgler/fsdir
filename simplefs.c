@@ -13,15 +13,24 @@
 DirectoryHandle* SimpleFS_init(SimpleFS* fs, DiskDriver* disk)
 {
     //ez controlli args
-    if(disk == NULL) handle_error_en("Invalid param (disk)", EINVAL);
-    if(fs == NULL) handle_error_en("Invalid param (Filesys)", EINVAL);
+    if(disk == NULL) 
+    {
+        printf("Invalid param (disk)");
+        return NULL;
+    }
+    if(fs == NULL) 
+    {
+        printf("Invalid param (fs)");
+        return NULL;
+    }
 
     fs->disk = disk;
 
     FirstDirectoryBlock* fdb = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock));
-
+    
     int ret = DiskDriver_readBlock(disk, fdb, 0);
-    if(ret == -1){ 
+    if(ret == -1)
+    { 
         free(fdb);
         return NULL;
     }
@@ -35,8 +44,9 @@ DirectoryHandle* SimpleFS_init(SimpleFS* fs, DiskDriver* disk)
     dh->pos_in_dir = 0;
 
     dh->current_block = (BlockHeader *) malloc(sizeof(BlockHeader));
-	memcpy(dh->current_block, &(fdb->header), sizeof(BlockHeader));
+	//memcpy(dh->current_block, &(fdb->header), sizeof(BlockHeader));
 
+    printf("Filesystem initialized successfully!\n\n");
     return dh;
 }
 
@@ -47,17 +57,19 @@ DirectoryHandle* SimpleFS_init(SimpleFS* fs, DiskDriver* disk)
 // and set to the top level directory
 void SimpleFS_format(SimpleFS* fs)
 {
-    if(fs == NULL) handle_error_en("Invalid param (Filesys)", EINVAL);
+    if(fs == NULL) 
+    {
+        printf("Invalid param (fs)");
+        return;
+    }
 
     FirstDirectoryBlock root = {0}; //TOP LEVEL
     root.header.block_in_file = 0;
     root.header.next_block = -1;
     root.header.previous_block = -1;
 
-    for(int i = 0; i < root.num_entries; i++)
-    {
-        root.file_blocks[i] = -1;
-    }
+    for(int i = 0; i < root.num_entries; i++) root.file_blocks[i] = -1;
+    
 
     root.fcb.directory_block = -1; //no parents
     root.fcb.block_in_disk = 0;
@@ -76,8 +88,11 @@ void SimpleFS_format(SimpleFS* fs)
     {
         //nella write block o l'errore che capita setta già errno,
         //oppure c'è un problema con la write, che torna -1 ---> setto errno a -1
-        handle_error_en("Error while writing first block", -1); 
+        printf("Error while writing first block\n"); 
+        return;
     }
+
+    printf("[FORMAT SUCCESS]\n");
 }
 
 // creates an empty file in the directory d
@@ -85,13 +100,21 @@ void SimpleFS_format(SimpleFS* fs)
 // an empty file consists only of a block of type FirstBlock
 FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 {
-    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
-    if(filename == NULL) handle_error_en("Invalid param (filename)", EINVAL);
+    if(d == NULL) 
+    {
+        printf("Invalid param (dir_handle)");
+        return NULL;
+    }
+    
+    if(filename == NULL) 
+    {
+        printf("Invalid param (filename)");
+        return NULL;
+    }
 
     SimpleFS* fs = d->sfs;
 	DiskDriver* disk = fs->disk;                   
 	FirstDirectoryBlock* fdb = d->dcb;
-
     if(fs == NULL || disk == NULL || fdb == NULL)
     { 
 	    printf("Bad parameters in SimpleFS_createFile\n");
@@ -109,9 +132,10 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 
         for(int i = 0; i < FDB_SPACE; i++)
         {
-            if((fdb->file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, fdb->file_blocks[i])) != -1)
+            
+            if((fdb->file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, fdb->file_blocks[i]) != -1))
             {
-                if(strcmp(fdb->fcb.name,filename) == 0)
+                if(strcmp(temp.fcb.name,filename) == 0)
                 {
 					printf("SimpleFS_createFile: file already exists\n");
 					return NULL;
@@ -136,7 +160,7 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 
             for(int i = 0; i < DB_SPACE; i++)
             {
-                if((db.file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, db.file_blocks[i])) != -1)
+                if((db.file_blocks[i] > 0 && DiskDriver_readBlock(disk, &temp, db.file_blocks[i]) != -1))
                 {
                     if(strcmp(fdb->fcb.name,filename) == 0)
                     {
@@ -148,6 +172,8 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
             next_block = db.header.next_block;
         }
     }//file does not previously exists
+    //printf("\nExistence check:\t[PASSED]\n");
+    //-----------------------------------------------------------------------------
     int new_block = DiskDriver_getFreeBlock(disk, disk->header->first_free_block);
     if(new_block == -1)
     {
@@ -155,16 +181,21 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
         DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
         return NULL;
     }
-
+    //firstfileblock
     FirstFileBlock* file = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
     memset(file, 0, sizeof(FirstFileBlock)); //cleared
 
     file->header.next_block = -1; file->header.previous_block = -1; file->header.block_in_file = 0; //default values
-    strcpy(file->fcb.name,filename); 
-    file->fcb.block_in_disk = new_block;
+    
+    strcpy(file->fcb.name, filename); 
+
     file->fcb.directory_block = fdb->fcb.block_in_disk;
+    file->fcb.block_in_disk = new_block;
     file->fcb.is_dir = 0;
-    //file->fcb.size_in_blocks = 0;  file->fcb.size_in_bytes = 0;
+    file->fcb.size_in_blocks = 1;
+    file->fcb.size_in_bytes = BLOCK_SIZE;
+    file->fcb.written_bytes = 0;
+    
 
     //ok now we put the block on the disk
 
@@ -198,12 +229,14 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 				break;
 			}
         }
+        
     }
     else
     { //provo nel directory block
+        printf("Free block not found in fdb, going to next blocks\n");
         no_space_fdb = 1;
         int next_block = fdb->header.next_block;
-
+        
         while(next_block != -1 && !block_found) //finche ho un nuovo blocco libero e finche non ho trovato uno spazio
         { 
 			ret = DiskDriver_readBlock(disk,&aux,next_block);
@@ -265,19 +298,27 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 		block_number = free_db;
     }
 
-    if(no_space_fdb == 0){ //il file è in fdb
-			fdb->num_entries++;
-			fdb->file_blocks[block_entry] = new_block;
-			DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
-			DiskDriver_writeBlock(disk, fdb, fdb->fcb.block_in_disk);
-		}else{//il file è nei directory blocks
-			fdb->num_entries++;
-			DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
-			DiskDriver_writeBlock(disk,fdb,fdb->fcb.block_in_disk);
-			aux.file_blocks[block_entry] = new_block;
-			DiskDriver_freeBlock(disk,block_number);
-			DiskDriver_writeBlock(disk,&aux,block_number);
-		}
+    if(no_space_fdb == 0)
+    { //il file è in fdb
+        //printf("File in fdb\n");
+        
+		fdb->num_entries++;
+		fdb->file_blocks[block_entry] = new_block;
+        //printf("Num entries now: %d\nfile block entry: %d\n", fdb->num_entries, fdb->file_blocks[block_entry]);
+		DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+		DiskDriver_writeBlock(disk, fdb, fdb->fcb.block_in_disk);
+	}
+    else
+    {//il file è nei directory blocks
+       // printf("File in db\n");
+		fdb->num_entries++;
+		DiskDriver_freeBlock(disk,fdb->fcb.block_in_disk);
+		DiskDriver_writeBlock(disk,fdb,fdb->fcb.block_in_disk);
+		aux.file_blocks[block_entry] = new_block;
+		DiskDriver_freeBlock(disk,block_number);
+		DiskDriver_writeBlock(disk,&aux,block_number);
+        //printf("Num entries now: %d\n\n", fdb->num_entries);
+	}
 
 	FileHandle* fh = malloc(sizeof(FileHandle));
 	fh->sfs = d->sfs;
@@ -285,15 +326,29 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 	fh->directory = fdb;
 	fh->pos_in_file = 0;
 
+
+    printf("File %s created\n", fh->fcb->fcb.name);
 	return fh;
 }
 
 // reads in the (preallocated) blocks array, the name of all files in a directory 
 int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
 {
-    if(names == NULL) handle_error_en("Invalid param (Names)", EINVAL);
-    if(d == NULL) handle_error_en("Invalid param (DirHandle)", EINVAL);
-    if(flag == NULL) handle_error_en("Invalid param (flags)", EINVAL);
+    if(names == NULL)
+    {
+        printf("Invalid param (names)");
+        return -1;
+    }
+    if(d == NULL) 
+    {
+        printf("Invalid param (dir_handle)");
+        return -1;
+    }
+    if(flag == NULL) 
+    {
+        printf("Invalid param (flags)");
+        return -1;
+    }
 
     int count = 0;
 
@@ -317,6 +372,8 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
     int* blocks = dcb->file_blocks;
     for(int i = 0; i < FDB_SPACE; i++)
     {
+    
+       // printf("\nBlock num.:\t%d\n", blocks[i]);
         if(blocks[i] > 0 && DiskDriver_readBlock(disk, ffb, blocks[i]) != -1)
         {
             strncpy(names[count], ffb->fcb.name, 128);
@@ -351,14 +408,23 @@ int SimpleFS_readDir(char** names, DirectoryHandle* d, int* flag)
             next = db.header.next_block;
         }
     }
+    free(ffb);
     return 0; //aight
 }
 
 // opens a file in the  directory d. The file should be exisiting
 FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
 {
-    if(filename == NULL) handle_error_en("Invalid param (filename)", EINVAL);
-    if(d == NULL) handle_error_en("Invalid param (DirHandle)", EINVAL);
+    if(filename == NULL) 
+    {
+        printf("Invalid param (filename)");
+        return NULL;
+    }
+    if(d == NULL) 
+    {
+        printf("Invalid param (dir_handle)");
+        return NULL;
+    }
 
     DiskDriver* disk = d->sfs->disk;
     FirstDirectoryBlock* fdb = d->dcb;
@@ -370,9 +436,10 @@ FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
     if(fdb->num_entries > 0)
     {
         FileHandle* fh = (FileHandle*) malloc(sizeof(FileHandle));
-        fh = d->sfs;
+        fh->sfs = d->sfs;
         fh->directory = fdb;
         fh->pos_in_file = 0;
+        fh->sfs->disk = d->sfs->disk;
 
         int found = 0;
 
@@ -431,13 +498,17 @@ FileHandle* SimpleFS_openFile(DirectoryHandle* d, const char* filename)
             return NULL;
         }
     }
-    //return NULL;
+    return NULL;
 }
 
 // closes a file handle (destroyes it)
 int SimpleFS_close(FileHandle* f)
 {
-    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
+    if(f == NULL) 
+    {
+        printf("Invalid param (filehandle)");
+        return -1;
+    }
 
     free(f->fcb);
     free(f);
@@ -458,22 +529,38 @@ int SimpleFS_free_dir(DirectoryHandle* f){
 int SimpleFS_write(FileHandle* f, void* data, int size)
 {
     //invalid param check
-    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
-    if(data == NULL) handle_error_en("Invalid param (data)", EINVAL);
-    if(size < 0) handle_error_en("Invalid param (size)", EINVAL);
+    if(f == NULL) 
+    {
+        printf("Invalid param (filehandle)");
+        return -1;
+    }
+    if(data == NULL) 
+    {
+        printf("Invalid param (data)");
+        return -1;
+    }
+    if(size < 0) 
+    {
+        printf("Invalid param (size)");
+        return -1;
+    }
 
-    FirstFileBlock* ffb = f->fcb; //ffb extraction
+    FirstFileBlock* ffb = f->fcb; //ffb extraction 
+    //printf("a\n");
+    //DiskDriver_print(f->sfs->disk);
     DiskDriver* disk = f->sfs->disk; // disk extraction
-
+    
     int written_bytes = 0;
     int offset = f->pos_in_file;
     int btw = size;
-
+   
     if(offset < FFB_SPACE && size <= FFB_SPACE - offset) //1 - best scenario
     {
         memcpy(ffb->data + offset, (char*) data, size);
         written_bytes = size;
         //updating
+        if(f->pos_in_file+written_bytes > ffb->fcb.written_bytes) ffb->fcb.written_bytes = f->pos_in_file+written_bytes;
+
         DiskDriver_freeBlock(disk,ffb->fcb.block_in_disk);
         DiskDriver_writeBlock(disk, ffb, ffb->fcb.block_in_disk);
 
@@ -533,6 +620,8 @@ int SimpleFS_write(FileHandle* f, void* data, int size)
             memcpy(temp.data+offset, (char*)data, FB_SPACE - offset);
 			written_bytes += btw;
 
+            if(f->pos_in_file+written_bytes > ffb->fcb.written_bytes) ffb->fcb.written_bytes = f->pos_in_file+written_bytes;
+
 	        DiskDriver_freeBlock(disk, block_in_disk);
 			DiskDriver_writeBlock(disk, ffb, block_in_disk);
 			//DiskDriver_freeBlock(disk, block_in_disk);
@@ -563,9 +652,21 @@ int SimpleFS_write(FileHandle* f, void* data, int size)
 int SimpleFS_read(FileHandle* f, void* data, int size)
 {
     //invalid param check
-    if(f == NULL) handle_error_en("Invalid param (filehandle)", EINVAL);
-    if(data == NULL) handle_error_en("Invalid param (data)", EINVAL);
-    if(size < 0) handle_error_en("Invalid param (size)", EINVAL);
+    if(f == NULL) 
+    {
+        printf("Invalid param (filehandle)");
+        return -1;
+    }
+    if(data == NULL) 
+    {
+        printf("Invalid param (data)");
+        return -1;
+    }
+    if(size < 0) 
+    {
+        printf("Invalid param (size)");
+        return -1;
+    }
 
     FirstFileBlock* ffb = f->fcb;
     DiskDriver* disk = f->sfs->disk;
@@ -623,30 +724,24 @@ int SimpleFS_read(FileHandle* f, void* data, int size)
 // -1 on error (file too short)
 int SimpleFS_seek(FileHandle* f, int pos)
 {
-    if(f == NULL) handle_error_en("Invalid param (FileHandle)", EINVAL);
-    if(pos < 0) handle_error_en("Invalid param (pos)", EINVAL);
-
-    int size = 0;
-    FirstFileBlock* ffb = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
-
-    if(DiskDriver_readBlock(f->sfs->disk, ffb, f->fcb->fcb.block_in_disk) == -1) handle_error_en("SimpleFS_seek: Error while reading block on disk", EIO);
-
-    size += sizeof(ffb->data);
-    
-    int next_block = ffb->header.next_block;
-    FileBlock temp;
-    while(next_block != -1)
+    if(f == NULL) 
     {
-        if(DiskDriver_readBlock(f->sfs->disk, &temp, next_block) == -1) handle_error_en("SimpleFS_seek: Error while reading block on disk", EIO);
-        size += sizeof(temp.data);
-
-        next_block = temp.header.next_block;
+        printf("Invalid param (filehandle)");
+        return -1;
+    }
+    if(pos < 0) 
+    {
+        printf("Invalid param (position)");
+        return -1;
     }
 
-    if(pos > size)
+    //int size = 0;
+    FirstFileBlock* ffb = f->fcb;//(FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+    
+    if(pos > ffb->fcb.written_bytes)
     {
         free(ffb);
-        printf("SimpleFS_seek: file's too short, returning -1");
+        printf("SimpleFS_seek: file's too short, returning -1\n");
         return -1;
     }
     f->pos_in_file = pos;
@@ -658,8 +753,16 @@ int SimpleFS_seek(FileHandle* f, int pos)
 // it does side effect on the provided handle
 int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
 {
-    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
-    if(dirname == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
+    if(d == NULL) 
+    {
+        printf("Invalid param (dir_handle)");
+        return -1;
+    }
+    if(dirname == NULL) 
+    {
+        printf("Invalid param (dirname)");
+        return -1;
+    }
 
     int ret = 0;
     DiskDriver* disk = d->sfs->disk;
@@ -689,6 +792,7 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
         {
             printf("SimpleFS_changeDir: cannot read parent directory of the directory you want to hop in\n");
             d->directory = NULL;
+            free(p);
             return -1;
         }
         d->directory = p;
@@ -754,13 +858,21 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
 // -1 on error
 int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
 {
-    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
-    if(dirname == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
-
+    if(d == NULL) 
+    {
+        printf("Invalid param (dir_handle)");
+        return -1;
+    }
+    if(dirname == NULL) 
+    {
+        printf("Invalid param (dirname)");
+        return -1;
+    }
     DiskDriver* disk = d->sfs->disk;
     FirstDirectoryBlock* dcb = d->dcb;
-    FirstDirectoryBlock* temp = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock)); //o first file block?
-    if(temp == NULL){
+    FirstDirectoryBlock* temp = (FirstDirectoryBlock*) malloc(sizeof(FirstDirectoryBlock)); 
+    if(temp == NULL)
+    {
 		printf("SimpleFS_mkDir: malloc (temp) error while creating FirstDirecotryBlock\n");
 		return -1;
 	}
@@ -816,17 +928,27 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
     }
 
     FirstDirectoryBlock* new_dir = (FirstDirectoryBlock*)malloc(sizeof(FirstDirectoryBlock));
-	if(new_dir == NULL){
+	if(new_dir == NULL)
+    {
 		printf("SimpleFS_mkDir: (new_dir) malloc error while creating FirstDirecotryBlock\n");
 		return -1;
 	}
+    memset(new_dir, 0, sizeof(FirstDirectoryBlock));
 
     new_dir->header.next_block = -1; new_dir->header.previous_block = -1; new_dir->header.block_in_file = 0;
 
-    new_dir->fcb.directory_block = dcb->fcb.block_in_disk; new_dir->fcb.block_in_disk = nb; new_dir->fcb.is_dir = 1;
-    new_dir->fcb.size_in_blocks = 0; new_dir->fcb.size_in_bytes = 0; 
+    new_dir->fcb.directory_block = dcb->fcb.block_in_disk; 
+    new_dir->fcb.block_in_disk = nb; 
+    new_dir->fcb.is_dir = 1;
+    new_dir->fcb.size_in_blocks = 0; 
+    new_dir->fcb.size_in_bytes = 0; 
+    new_dir->fcb.written_bytes = 0;
     new_dir->num_entries = 0;
+    
 	strcpy(new_dir->fcb.name, dirname);
+
+    memset(new_dir->file_blocks, 0, FDB_SPACE);
+    
 
     int block_number = dcb->fcb.block_in_disk;
     //scrivere su disco la directory
@@ -839,6 +961,9 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
         printf("SimpleFS_mkDir: cannot write new block on disk\n");
         return -1;
     }
+
+    free(new_dir);
+
     int block_in_file = 0;
     int fdb_or_db = 0; //variabile utilizzata x capire se, nel caso non ci fosse un blocco libero nell'intera cartella, se doversi attaccari all'fdb o a un semplice db
 
@@ -928,8 +1053,16 @@ int SimpleFS_mkDir(DirectoryHandle* d, char* dirname)
 // if a directory, it removes recursively all contained files
 int SimpleFS_remove(DirectoryHandle* d, char* filename)
 {
-    if(d == NULL) handle_error_en("Invalid param (Directory)", EINVAL);
-    if(filename == NULL) handle_error_en("Invalid param (Directory name)", EINVAL);
+    if(d == NULL) 
+    {
+        printf("Invalid param (dirhandle)");
+        return -1;
+    }
+    if(filename == NULL) 
+    {
+        printf("Invalid param (filename)");
+        return -1;
+    }
 
     DiskDriver* disk = d->sfs->disk;
     FirstDirectoryBlock* fdb = d->dcb;
@@ -942,95 +1075,96 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
 
     FirstFileBlock ffb;
     int id = -1;
-    int entry = -1;
+    int file_index;
+
     for(int i = 0; i < FDB_SPACE; i++)
     {
         if(fdb->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, &ffb, fdb->file_blocks[i])) != -1)
         {
             if(strcmp(filename, ffb.fcb.name) == 0)
             {   
-                entry = i;
-                id = fdb->file_blocks[i];
+                id = i;
+                file_index = fdb->file_blocks[id];
                 break;
             }
         }
     }
     int firstfound = 1; //significa che il file è stato trovato nel fdb
 
-    DirectoryBlock* db = (FirstDirectoryBlock*) malloc(sizeof(DirectoryBlock));
+    DirectoryBlock* db = (DirectoryBlock*) malloc(sizeof(DirectoryBlock));
 
     int next = fdb->header.next_block;
 	int block_in_disk = fdb->header.block_in_file;
 
-    while(id == -1 && next) //id = -1 significa che non sta nell'fdb
+    while(id == -1 && next != -1) //id = -1 significa che non sta nell'fdb
     {
-        firstfound = 0;
-        int ret = DiskDriver_readBlock(disk, &db, next);
-        if(ret == -1)
-        {
-            printf("SimpleFS_remove: cannot read block\n");
-            free(db);
-		    return -1;
-        }
-
-        for(int i = 0; i < DB_SPACE; i++)
-        {
-            if(db->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, &ffb, db->file_blocks[i])) != -1)
+     
+            firstfound = 0;
+            int ret = DiskDriver_readBlock(disk, &db, next);
+            if(ret == -1)
             {
-                if(strcmp(filename, ffb.fcb.name) == 0)
+                printf("SimpleFS_remove: cannot read block\n");
+                //free(db);
+		        return -1;
+            }
+
+            for(int i = 0; i < DB_SPACE; i++)
+            {
+                if(db->file_blocks[i] > 0 && (DiskDriver_readBlock(disk, &ffb, db->file_blocks[i])) != -1)
                 {
-                    entry = i;
-                    id = db->file_blocks[i];
-                    break;
+                    if(strcmp(filename, ffb.fcb.name) == 0)
+                    {
+                        id = i;
+                        file_index = db->file_blocks[id];
+                        break;
+                    }
                 }
             }
-        }
         block_in_disk = next;
-        next = db->header.next_block;
+        next = db->header.next_block;       
     }
-
     if(id == -1)
     {
-        printf("SimpleFS_remove: file does not exist!\n");
+        printf("Filename does not exist!\n");
         free(db);
-		return -1;
-    }
+        return -1;
+    }    
 
-    FirstFileBlock kill;
-    if(DiskDriver_readBlock(disk, &kill, id) == -1)
+    FirstFileBlock* kill = (FirstFileBlock*) malloc(sizeof(FirstFileBlock));
+    if(DiskDriver_readBlock(disk, kill, file_index) == -1)
     {
         printf("SimpleFS_remove: cannot read file to kill\n");
         free(db);
         return -1;
     } 
 
-    if(!kill.fcb.is_dir) //eliminazioe file
+    if(!kill->fcb.is_dir) //eliminazioe file
     {
         FileBlock aux;
-        next = kill.header.next_block; //prima era ridefinito
-        int block = id;
+        int next_block = kill->header.next_block; //prima era ridefinito
+        int block = file_index;
 
-        while(next != -1)
+        while(next_block != -1)
         {
-            if(DiskDriver_readBlock(disk, &aux, next) == -1) return -1;
-			block = next;
-			next = aux.header.next_block;
+            if(DiskDriver_readBlock(disk, &aux, next_block) == -1) return -1;
+			block = next_block;
+			next_block = aux.header.next_block;
 			DiskDriver_freeBlock(disk, block);
         }
-        if(DiskDriver_freeBlock(disk, id) == -1)
+        if(DiskDriver_freeBlock(disk, file_index) == -1)
         {
             printf("SimpleFS_remove: cannot free the block\n");
             free(db);
 		    return -1;
         }
-
+        
         d->dcb = fdb;
+        free(kill);
     }
-
     else //eliminazione cartella e file all'interno
     {
         FirstDirectoryBlock fdb_kill;
-        if(DiskDriver_readBlock(disk, &fdb_kill, id) == -1)
+        if(DiskDriver_readBlock(disk, &fdb_kill, file_index) == -1)
         {
             printf("SimpleFS_remove: cannot read dir to kill\n");
             free(db);
@@ -1039,13 +1173,12 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
 
         if(fdb_kill.num_entries < 1) //cartella vuota
         {
-            if(DiskDriver_freeBlock(disk, id) == -1)
+            if(DiskDriver_freeBlock(disk, file_index) == -1) //rimuovo solo blocco cartella
                 {
                     printf("SimpleFS_remove: cannot free the block\n");
                     free(db);
 		            return -1;
                 }
-
             d->dcb = fdb;
         }
         else //cartella !vuota
@@ -1060,15 +1193,16 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
 
             for(int i = 0; i < FDB_SPACE; i++)
             {   //chiamata ricorsiva
-                if(fdb_kill.file_blocks[i] > 0 && DiskDriver_readBlock(disk,&ffb, fdb_kill.file_blocks[i]) != -1) SimpleFS_remove(d,ffb.fcb.name);
+                FirstFileBlock file;
+                if(fdb_kill.file_blocks[i] > 0 && DiskDriver_readBlock(disk,&file, fdb_kill.file_blocks[i]) != -1) SimpleFS_remove(d,file.fcb.name);
             }
 
-            next = fdb_kill.header.next_block;
-            int block = id;
+            int next_block = fdb_kill.header.next_block;
+            int block = file_index;
             DirectoryBlock db_aux;
             while(next)
             {
-                if(DiskDriver_readBlock(disk, &db_aux, next) == -1)
+                if(DiskDriver_readBlock(disk, &db_aux, next_block) == -1)
                 {
                     printf("SimpleFS_remove: cannot read dirblock\n");
                     free(db);
@@ -1086,35 +1220,38 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
                     } 
 					SimpleFS_remove(d, ffb_rec.fcb.name);
 				}
-				block_in_disk = next;
-				next = db_aux.header.next_block;
-				DiskDriver_freeBlock(disk,block_in_disk);
+				block = next_block;
+				next_block = db_aux.header.next_block;
+				DiskDriver_freeBlock(disk,block);
             }
-            DiskDriver_freeBlock(disk, id);
+            DiskDriver_freeBlock(disk, file_index);
 			d->dcb = fdb;
         }
 
     }
     if(!firstfound)
     {
-        	db->file_blocks[entry] = -1;
+        	db->file_blocks[id] = 0;
 			fdb->num_entries -= 1;
       
             DiskDriver_freeBlock(d->sfs->disk, block_in_disk);
 			DiskDriver_writeBlock(d->sfs->disk, db, block_in_disk);
             DiskDriver_freeBlock(d->sfs->disk, fdb->fcb.block_in_disk);
 			DiskDriver_writeBlock(d->sfs->disk, fdb, fdb->fcb.block_in_disk);
-			return 0;
+			return 0; //return 0;
     }
     else
     {
-        fdb->file_blocks[id] = -1;
+        fdb->file_blocks[id] = 0;
 		fdb->num_entries-=1;
      
         DiskDriver_freeBlock(disk, fdb->fcb.block_in_disk);
 		DiskDriver_writeBlock(disk, fdb, fdb->fcb.block_in_disk);
 		return 0;
     }
-    
+    printf("Couldn't remove filename, returning -1\n");
+    return -1;
 }
-  
+
+/////////////////////////////////////////////////////////////////
+

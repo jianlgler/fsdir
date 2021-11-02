@@ -26,3 +26,5 @@ int BitMap_set(BitMap* bmap, int pos, int status);
 
 // print the bitmap, usefull for tests
 void BitMap_print(BitMap* bm);
+
+int BitMap_isFree(BitMap* bm, int block_num);

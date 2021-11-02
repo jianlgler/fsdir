@@ -126,4 +126,16 @@ void BitMap_print(BitMap* bm)
             i, entry_k.entry_num, entry_k.bit_num, 
             status);
     }
+
+}
+
+int BitMap_isFree(BitMap* bmap, int block_num)
+{
+        if(block_num > bmap->num_bits || block_num < 0) return -1;
+
+        BitMapEntryKey k = BitMap_blockToIndex(block_num);
+        int idx = k.entry_num;
+        int bit = bmap->entries[idx] >> k.bit_num & 0x01;
+
+        if(bit == 0) return 1; else return 0;
 }

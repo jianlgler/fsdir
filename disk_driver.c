@@ -60,7 +60,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
             handle_error_en("Error f-allocating", ret); //fallocate non setta errno
         }*/
 
-        hdr = DiskDriver_initialize_header(hdr, fd, header_size);
+    hdr = DiskDriver_initialize_header(hdr, fd, header_size);
 
         disk->header = hdr;
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore alla mappa, skippo header
@@ -85,8 +85,9 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
             printf("Error f-allocating, returning\n");
             return;
         }
+        DiskHeader* hdr = NULL;
 
-        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);  
+        hdr = DiskDriver_initialize_header(hdr, fd, header_size);  
          // if the file was new compiles a disk header, and fills in the bitmap of appropriate size with all 0 (to denote the free space);
         hdr->num_blocks = num_blocks;
         hdr->bitmap_blocks = num_blocks;
@@ -115,9 +116,14 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 // 0 otherwise
 int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 {   
-    if(block_num < 0 || block_num >= disk->header->num_blocks )
+    if(block_num < 0)
     {
-        printf("Invalid param (block_num), returning -1");
+        printf("[RD]Invalid param (block_num < 0), returning -1\n");
+        return -1;
+    }
+    if (block_num >= disk->header->bitmap_blocks )
+    {
+        printf("[RD]Invalid param (block_num >= num_blocks), (bitmap blocks = %d\tblock_num = %d)\treturning -1\n", disk->header->bitmap_blocks, block_num);
         return -1;
     }
     if(disk == NULL)
@@ -147,6 +153,7 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
     if(lseek(fd, pos, SEEK_SET) == -1) 
     {
         printf("FSEEK_error: Invalid offset, %d, returning -1\n", pos);
+        return -1;
     }
 
     int ret, bytes_reads = 0;
@@ -170,7 +177,7 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 		bytes_reads +=ret;
 	}
 
-    printf("Done\n");
+    //printf("Done\n");
     return 0;
 }
 
@@ -180,9 +187,14 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 //DECOMMENTARE
 int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
 {
-    if(block_num < 0 || block_num >= disk->header->num_blocks )
+    if(block_num < 0)
     {
-        printf("Invalid param (block_num), returning -1\n");
+        printf("[WR]Invalid param (block_num < 0), returning -1\n");
+        return -1;
+    }
+    if(block_num >= disk->header->bitmap_blocks)
+    {
+        printf("[WR]Invalid param (block_num >= num_blocks), (bitmap blocks = %d)\treturning -1\n", disk->header->bitmap_blocks);
         return -1;
     }
     if(disk == NULL)

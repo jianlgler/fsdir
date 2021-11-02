@@ -22,6 +22,7 @@ typedef struct {
   int directory_block; // first block of the parent directory
   int block_in_disk;   // repeated position of the block on the disk
   char name[128];
+  int written_bytes;   //utilizzato per la seek
   int  size_in_bytes;
   int size_in_blocks;
   int is_dir;          // 0 for file, 1 for dir
