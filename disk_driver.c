@@ -221,6 +221,10 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
     int pos = sizeof(DiskHeader) + disk->header->bitmap_entries + (block_num*BLOCK_SIZE);
     //mi sposto all'offset e leggo byte per byte un blocco
 
+    //formatting source
+    //memset(src + (strlen(src)*BYTE_DIM), ' ', BLOCK_SIZE - (strlen(src)*BYTE_DIM) ); 
+    
+
     if(lseek(fd, pos, SEEK_SET) == -1) 
     {
         printf("FSEEK_error: Invalid offset, %d, returning -1\n", pos);
@@ -243,6 +247,7 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
         }
         bytes_w += ret;
     }
+    
     if(ret != BLOCK_SIZE)
     {
         printf("Error while reading"); return -1;

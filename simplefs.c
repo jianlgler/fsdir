@@ -325,7 +325,7 @@ FileHandle* SimpleFS_createFile(DirectoryHandle* d, const char* filename)
 	fh->fcb = file;
 	fh->directory = fdb;
 	fh->pos_in_file = 0;
-
+    fh->current_block = &(fh->fcb->header);
 
     printf("File %s created\n", fh->fcb->fcb.name);
 	return fh;
@@ -509,10 +509,20 @@ int SimpleFS_close(FileHandle* f)
         printf("Invalid param (filehandle)");
         return -1;
     }
-
+    //printf("---------------[TEST]------------------\n");
+    
+    if(f->fcb == NULL)
+    {
+        printf("BadFileFormatException()\n");
+        return -1;
+    }
+    printf("\nClosing %s \n", f->fcb->fcb.name);
+    printf("Freeing fcb...");
     free(f->fcb);
+    printf("Freeing structure...");
     free(f);
-
+    printf("OK\n");
+    
     return 0;
 }
 
@@ -1089,6 +1099,7 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
             }
         }
     }
+    //printf("\nmiao\n");
     int firstfound = 1; //significa che il file è stato trovato nel fdb
 
     DirectoryBlock* db = (DirectoryBlock*) malloc(sizeof(DirectoryBlock));
@@ -1200,7 +1211,7 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
             int next_block = fdb_kill.header.next_block;
             int block = file_index;
             DirectoryBlock db_aux;
-            while(next)
+            while(next != -1)
             {
                 if(DiskDriver_readBlock(disk, &db_aux, next_block) == -1)
                 {
@@ -1223,7 +1234,7 @@ int SimpleFS_remove(DirectoryHandle* d, char* filename)
 				block = next_block;
 				next_block = db_aux.header.next_block;
 				DiskDriver_freeBlock(disk,block);
-            }
+            }printf("\nmiao\n");
             DiskDriver_freeBlock(disk, file_index);
 			d->dcb = fdb;
         }

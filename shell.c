@@ -17,7 +17,7 @@ const char* filename = "./my_file.txt";
 
 DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simple_fs)
 {
-    DiskDriver_init(filename, disk, 1024);
+    DiskDriver_init(disk, filename, 1024);
     DiskDriver_flush(disk);
 
     DirectoryHandle* dh = SimpleFS_init(simple_fs,disk);
@@ -25,7 +25,7 @@ DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simp
     {
         SimpleFS_format(simple_fs);
 		dh = SimpleFS_init(simple_fs,disk);
-    }
+    }printf("\nOK\n");
     return dh;
 }
 
@@ -36,7 +36,7 @@ void FS_abortion(int dummy)
     if(cur != NULL) SimpleFS_free_dir(cur);
     if(disk != NULL) free(disk);
     if(fs != NULL) free(fs);
-
+    printf("\tGoodbye\n");
     exit(EXIT_SUCCESS); 
 }
 
@@ -58,6 +58,7 @@ void FS_help()
     printf("Use status to show disk informations\n");
     printf("Use quit or CTRL + C to exit the program\n\n");
     printf("Use help to show a list of the avaible commands (it repeats current messages)\n");
+    return;
 }
 
 void FS_rm(int argc, char* argv[2])
@@ -150,16 +151,8 @@ void FS_ls()
 
     for (int i = 0; i < cur->dcb->num_entries; i++) 
     {
-        if(flags[i] == 1) //Directory
-        { //testo directory in azzurro
-            if(i%3 == 0) printf("\033[1;34m%s\033[0m\n", names[i]); 
-            else printf("\033[1;34m%s\033[0m\t", names[i]);
-        }
-        if(flags[i] == 0) //File, white
-        {
-            if(i%3 == 0) printf("%s\n", names[i]);
-            else printf("%s\t", names[i]);
-        }
+        if(flags[i] == 1) printf("\033[1;34m%s\033[0m\t", names[i]);//Directory testo directory in azzurro
+        if(flags[i] == 0) printf("%s\t", names[i]);                  //File, white
 
         free(names[i]); //deallocate ater printing
     }
@@ -192,7 +185,7 @@ void FS_wr(int argc, char* argv[2], int start_pos)
 
     if(SimpleFS_seek(fh, start_pos) == -1)
     {
-        printf("wr_error: cannot jump to starting position \n", argv[1]);
+        printf("wr_error: cannot jump to starting position \n");
         SimpleFS_close(fh);
         return;
     }
@@ -252,7 +245,7 @@ void FS_rd(int argc, char* argv[2])
     SimpleFS_close(fh);
 }
 
-int main(int argc, int argv[2])
+int main(int argc, char** argv[2])
 {
     signal(SIGINT, FS_abortion);
 
@@ -280,36 +273,38 @@ int main(int argc, int argv[2])
         free(fs);
         return -1;
     }
+    FS_status();
 
-    char welcome[] = "Welcome";
-
-    for(int i = 0; i < strlen(welcome); i++)
-    {
-        printf("%c", welcome[i]);
-    } 
-    sleep(1000);
-    printf("\t;)\n");
-
+    printf("\n-------------------------------[SIMPLE_FS]-------------------------------\n");
+    printf("\n\nWELCOME!\t;)\n");
+    
     printf("Type 'help' for command list\n");
 
     char cmd[256];
 
     while(1)
     {
-        printf("%s$", cur->dcb->fcb.name);
+        printf("%s$ >", cur->dcb->fcb.name);
 
         fgets(cmd, 256, stdin);
 
-        char* argv[2] = NULL;
+        //printf("[TEST] your cmd...: %s\n", cmd);
+
+        char* argv[2] = {NULL};
         argv[0] = strtok(cmd, " ");
         argv[1] = strtok(NULL, "\n");
 
         int argc = (argv != NULL) ? 2 : 1;
 
+        if(argv[1] == NULL) argv[0][strlen(argv[0]) - 1] = 0;
+
+        //if(argc == 1) printf("[TEST] your cmd parsed...: %s\n", argv[0]);
+        //if(argc == 2) printf("[TEST] your cmd parsed...: %s %s\n", argv[0], argv[1]);
+
         if (strcmp(argv[0], "mkdir") == 0) FS_mkdir(argc, argv); 
-        if (strcmp(argv[0], "ls") == 0) FS_ls(); 
-        if (strcmp(argv[0], "cd") == 0) FS_cd(argc, argv); 
-        if (strcmp(argv[0], "wr") == 0) 
+        else if (strcmp(argv[0], "ls") == 0) FS_ls(); 
+        else if (strcmp(argv[0], "cd") == 0) FS_cd(argc, argv); 
+        else if (strcmp(argv[0], "wr") == 0) 
         {
             int start = 0;
             printf("\n>Insert starting position\t");
@@ -317,12 +312,12 @@ int main(int argc, int argv[2])
             FS_wr(argc, argv, start); 
             printf("\n");
         }
-        if (strcmp(argv[0], "rd") == 0) FS_rd(argc, argv); 
-        if (strcmp(argv[0], "rm") == 0) FS_rm(argc, argv); 
-        if (strcmp(argv[0], "touch") == 0) FS_touch(argc, argv); 
-        if (strcmp(argv[0], "status") == 0) FS_status(); 
-        if (strcmp(argv[0], "quit") == 0) FS_help(); 
-        if (strcmp(argv[0], "help") == 0) FS_abortion(SIGINT); 
+        else if (strcmp(argv[0], "rd") == 0) FS_rd(argc, argv); 
+        else if (strcmp(argv[0], "rm") == 0) FS_rm(argc, argv); 
+        else if (strcmp(argv[0], "touch") == 0) FS_touch(argc, argv); 
+        else if (strcmp(argv[0], "status") == 0) FS_status(); 
+        else if (strcmp(argv[0], "help") == 0) FS_help(); 
+        else if (strcmp(argv[0], "quit") == 0) FS_abortion(SIGINT); 
         else printf("\n>Invalid cmd!\n");
     }
 
