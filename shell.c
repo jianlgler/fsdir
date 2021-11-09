@@ -13,7 +13,7 @@ SimpleFS* fs;
 DiskDriver* disk;
 DirectoryHandle* cur;
 
-const char* filename = "./my_file.txt";
+const char* filename = "./sfs1.txt";
 
 DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simple_fs)
 {
@@ -21,11 +21,11 @@ DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simp
     DiskDriver_flush(disk);
 
     DirectoryHandle* dh = SimpleFS_init(simple_fs,disk);
-    if(dh == NULL)
+    /*if(dh == NULL)
     {
         SimpleFS_format(simple_fs);
 		dh = SimpleFS_init(simple_fs,disk);
-    }printf("\nOK\n");
+    }*/printf("OK\n\n");
     return dh;
 }
 
@@ -34,7 +34,10 @@ void FS_abortion(int dummy)
     printf("\nClosing"); printf("."); printf("."); printf(".\n");
 
     if(cur != NULL) SimpleFS_free_dir(cur);
+    
     if(disk != NULL) free(disk);
+    //if(disk->bitmap_data != NULL) free(disk->bitmap_data);
+    
     if(fs != NULL) free(fs);
     printf("\tGoodbye\n");
     exit(EXIT_SUCCESS); 
@@ -42,6 +45,8 @@ void FS_abortion(int dummy)
 
 void FS_status()
 {
+    printf("Filename: %s\n\n", filename);
+
     DiskDriver_print(disk);
 }
 
@@ -206,7 +211,7 @@ void FS_wr(int argc, char* argv[2], int start_pos)
     SimpleFS_close(fh);
 }
 
-void FS_rd(int argc, char* argv[2])
+void FS_rd(int argc, char** argv)
 {
     if(argc != 2)
     {
@@ -264,7 +269,7 @@ int main(int argc, char** argv[2])
         return -1;
     }
 
-
+    
     cur = FS_setup(filename, disk, fs);
     if(cur == NULL)
     {

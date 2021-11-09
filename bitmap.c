@@ -121,12 +121,11 @@ void BitMap_print(BitMap* bm)
         BitMapEntryKey entry_k = BitMap_blockToIndex(i);
         //prendo il blocco, shifto al bit e confronto con 1
         int status = bm->entries[entry_k.entry_num] >> entry_k.bit_num & 0x01;
-        printf("Value in BitMap entries = %c\t", bm->entries[entry_k.entry_num]);
-        printf("Block = %d\tEntry_num = %d\tOffset = %d\tStatus = %d\n",
+        //printf("Value in BitMap entries = %c\t", bm->entries[entry_k.entry_num]);
+        printf("Bit_num (abs) = %i\tEntry_num = %i\tOffset = %d\tStatus = %i\n",
             i, entry_k.entry_num, entry_k.bit_num, 
             status);
     }
-
 }
 
 int BitMap_isFree(BitMap* bmap, int block_num)

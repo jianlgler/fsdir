@@ -48,6 +48,17 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num);
 int DiskDriver_getFreeBlock(DiskDriver* disk, int start);
 
 // writes the data (flushing the mmaps)
+/*
+The program maps a region of memory using mmap. It then modifies the mapped region. 
+The system isn't required to write those modifications back to the underlying file immediately, so a read call on that file (in ioutil.ReadAll) could return the prior contents of the file.
+The system will write the changes to the file at some point after you make the changes. 
+It is allowed to write the changes to the file any time after the changes are made, but by default makes no guarantees about when it writes those changes. 
+All you know is that (unless the system crashes), the changes will be written at some point in the future.
+If you need to guarantee that the changes have been written to the file at some point in time, then you must call msync.
+The mmap.Flush function calls msync with the MS_SYNC flag. 
+When that system call returns, the system has written the modifications to the underlying file, so that any subsequent call to read will read the modified file.
+*/
+
 int DiskDriver_flush(DiskDriver* disk);
 
 //initialize header

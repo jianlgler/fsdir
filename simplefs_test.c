@@ -73,17 +73,61 @@ int print_dir(DirectoryHandle* cur)
     {
 			if(names[i] != NULL) printf("%s\n",names[i]);
 		}
+    //printf("\tblock_num:%d\n", cur->dcb->file_blocks[i]);
 	} 
+  //for (int i = 0; i < cur->dcb->num_entries; i++) free(names[i]); 
   free(names);
   free(flag);
   return 0;
 }
 
-
 int main(int agc, char** argv) 
 { 
- 
+ /*
   printf("\n------------------BITMAP TEST---------------------\n");
+
+  BitMap* bm = (BitMap*) malloc(sizeof(BitMap));
+  char entry[8] = { 0 };
+  bm->num_bits = 64; bm->entries = entry;
+  printf("Seq:\t");
+  for(int i = 0; i < 8*BYTE_DIM; i++)
+  {
+    int res = BitMap_get(bm, i, 0);
+    printf("%d ", res);
+  } printf("\nDone\n");
+
+  if(BitMap_set(bm, 9, 1) == -1)
+  {
+    printf("Error\n");
+    return -1;
+  }
+  if(BitMap_set(bm, 15, 1) == -1)
+  {
+    printf("Error\n");
+    return -1;
+  }
+  if(BitMap_set(bm, 30, 1) == -1)
+  {
+    printf("Error\n");
+    return -1;
+  }
+  if(BitMap_set(bm, 21, 1) == -1)
+  {
+    printf("Error\n");
+    return -1;
+  }
+  if(BitMap_set(bm, 60, 1) == -1)
+  {
+    printf("Error\n");
+    return -1;
+  }
+ 
+   printf("New_Seq:\t");
+  for(int i = 0; i < 8*BYTE_DIM; i++)
+  {
+    int res = BitMap_get(bm, i, 0);
+    printf("%d ", res);
+  } printf("\nDone\n");
 
   printf("BitMap 1:--------------------------------------------\n");
 
@@ -92,6 +136,9 @@ int main(int agc, char** argv)
   bm1->entries = bit1;
   bm1->num_bits = 64;
   BitMap_print(bm1);
+
+  printf("------------------------------------------\n");
+
 
   printf("BitMap 2:--------------------------------------------\n");
 
@@ -180,16 +227,18 @@ int main(int agc, char** argv)
 
     pos = 42; status = 5; ret = BitMap_set(bm1, pos, status); 
     printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
-    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);*/
-
+    printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
+    
   printf("\nBITMAP OK!\n");
-
+  free (bm); free(bm1); free(bm2);
+  */
   printf("\n------------------DISK_DRIVER TEST----------------------\n");
-
+  
   if(remove(filename) == -1) printf("Error while trying to remove file\n");
     
-
+  printf("\nok\n");
   DiskDriver* disk = (DiskDriver*) malloc(sizeof(DiskDriver)); //stampa no free block perchè al running precedente del test sono ancora allocati
+  printf("\nok1\n");
   DiskDriver_init(disk, filename, 8);
 
   printf("DiskDriver inizializzato-------------------\n\n");
@@ -267,18 +316,18 @@ int main(int agc, char** argv)
   }
   printf("Blocco 7 inizializzato!\n");
 
-    /*--------------------------------------------------  Free test     --------------------------------------------------------------------------*/
+    printf("--------------------------------------------------  Free test     --------------------------------------------------------------------------\n");
 
   printf("\nLiberando blocchi scritti su disco nelle precedenti esecuzioni del test\n");
   for(int i = 0; i < 8; i++) DiskDriver_freeBlock(disk, i);
 
-    /*--------------------------------------------------  Get Free BLock test     ----------------------------------------------------------------*/
+    printf("--------------------------------------------------  Get Free BLock test     ----------------------------------------------------------------\n");
   printf("\nGetFreeBlock test\n");
 
   for(int i = 0; i < 8; i++) printf("%d", DiskDriver_getFreeBlock(disk, i));
     
   printf("[CORRECT = 01234567]\n");
-    /*--------------------------------------------------  Block writing --------------------------------------------------------------------------*/
+    printf("--------------------------------------------------  Block writing --------------------------------------------------------------------------\n");
 
   printf("\n\nEight blocks creates, writing them on disk!\n");
 
@@ -289,11 +338,7 @@ int main(int agc, char** argv)
 	  printf("Error: could not write block 0 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -304,11 +349,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 1 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -319,11 +360,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 2 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -334,11 +371,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 3 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -349,11 +382,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 4 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-	  printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -364,11 +393,7 @@ int main(int agc, char** argv)
 	  printf("Error: could not write block 5 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -379,11 +404,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 6 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-		return -1;
-	}
+
   printf("\n");
   DiskDriver_print(disk);
 
@@ -394,11 +415,7 @@ int main(int agc, char** argv)
 		printf("Error: could not write block 7 to disk\n");
 		return -1;
 	}
-	if(DiskDriver_flush(disk) == -1)
-  {
-	  printf("Error: flush\n");
-	  return -1;
-	} 
+
   printf("\n");
   DiskDriver_print(disk);
   printf("\nDisk is FULL now!\n");
@@ -415,12 +432,7 @@ int main(int agc, char** argv)
   }
 
   if(DiskDriver_writeBlock(disk, fb_8, 8) == -1) printf("Error: could not write block 8 to disk....as expected\n");
-	  
-	 if(DiskDriver_flush(disk) == -1)
-  {
-		printf("Error: flush\n");
-	  return -1;
-  }
+
   printf("\n");
 
   printf("-------------------------------------------Reading test----------------------------\n");
@@ -455,15 +467,15 @@ int main(int agc, char** argv)
   free(disk);
   free(fb_0); free(fb_1); free(fb_2); free(fb_3); free(fb_4); free(fb_5); free(fb_6); free(fb_7); free(fb_8);
   free(aux);
-
+  
   printf("\n-----------------------------[DISKDRIVER_TEST DONE]-----------------------\n");
-
+  
   if(remove(filename) == -1)
   {
     printf("Error while trying to remove file\n");
     return -1;
   }
-
+  
   printf("\n-----------------------------[SIMPLEFS_TEST]------------------------------\n");
 
   disk = (DiskDriver*) malloc(sizeof(DiskDriver)); //stampa no free block perchè al running precedente del test sono ancora allocati
@@ -616,7 +628,7 @@ int main(int agc, char** argv)
 	}
 
   printf("\n--------------------[WR/RD TEST]---------------------------------\n\n");
-
+  
   printf("Scrivo su tre file, polkadot, cardano e kusama\n\n");
 
   printf("---------------------------DOT WRRD------------------------------\n\n");
@@ -654,7 +666,7 @@ int main(int agc, char** argv)
 	  return -1;
 	}
 
-
+  
   printf("---------------------------ADA WRRD------------------------------\n\n");
   tw = "Gymnopedie - Erik Satie";
 
@@ -795,9 +807,14 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
-
+  if(SimpleFS_close(monero) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
   printf("Monero removed\n");
-  free(monero);
+  //free(monero);
 
   if(SimpleFS_remove(cur, "moonriver.txt")  == -1)
   {
@@ -805,8 +822,14 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
+  if(SimpleFS_close(moonriver) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
   printf("moonriver removed\n");
-  free(moonriver);
+  //free(moonriver);
 
   printf("OK\n");
   if(print_dir(cur) == -1) 
@@ -855,6 +878,12 @@ int main(int agc, char** argv)
     return -1;
   }
   printf("Solamander created\n");
+  if(SimpleFS_remove(cur, "solamander.txt") == -1)
+  {
+    printf("Error: could not remove 'Movies'\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
   FileHandle* cryptopunk = SimpleFS_createFile(cur, "cryptopunk.txt");
   if(cryptopunk == NULL)
   {
@@ -870,7 +899,7 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
-
+    
   printf("\n--------------------[MAKING NEW DIRECTORY]---------------------------------\n\n");
 
   if(SimpleFS_mkDir(cur, "Videogames") == -1)
@@ -931,7 +960,7 @@ int main(int agc, char** argv)
   printf("Current directory:\t%s\n", cur->dcb->fcb.name);
 
   FileHandle* FFX = SimpleFS_createFile(cur, "FinalFantasy_X.txt");
-  if(moonsama == NULL)
+  if(FFX == NULL)
   {
     printf("Errore in creazione file, RIP");
     free(fs); free(disk);
@@ -1049,9 +1078,9 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
-
+  
    //------------------------------------------------------------
-  printf("\nGoing back to Jianl, then removing Movies and all of its content\n\n");
+  printf("\nGoing back to Jianl, then removing Movies and all of its content, removing also some file\n\n");
   if(SimpleFS_changeDir(cur, "..") == -1)
   {
     printf("test: changedir error, cannot move to 'Jianl'\n");
@@ -1075,6 +1104,55 @@ int main(int agc, char** argv)
   }
   printf("\n\n'Movies' removed successfully\n");
 
+
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_remove(cur, "moonsama.txt") == -1)
+  {
+    printf("Error: could not remove 'moonsama.txt'\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(moonsama) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  printf("moonsama removed\n");
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  printf("\n---------------------------------[NAVIGATING THROUGH THE FS]-------------------------\n \n");
+  printf("\nGoing to VIdeogames\n");
+  if(SimpleFS_changeDir(cur, "Videogames") == -1)
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("OK\n");
+    if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  printf("BAck to Jianl then to /\n");
+  if(SimpleFS_changeDir(cur, "..") == -1)
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("OK\n");
   if(print_dir(cur) == -1)
   {
 	  printf("Error: could not read current dir.\n");
@@ -1082,4 +1160,127 @@ int main(int agc, char** argv)
 	  return -1;
   }
 
+  if(SimpleFS_changeDir(cur, "Music") == -1)
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("OK\n");
+    if(print_dir(cur) == -1)//we in music
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  
+  printf("BAck to Jianl then to /\n");
+  if(SimpleFS_changeDir(cur, "..") == -1)//we in jianl
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("OK\n");
+    if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_changeDir(cur, "..") == -1)//we  /
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("OK\n");
+    if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  printf("\nTRying to bo back, expected error\n");
+    if(SimpleFS_changeDir(cur, "..") != -1)//we in /
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  printf("As expected...\n\n");
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  printf("\n-------------------------------------------[CLOSING FILES]---------------------------------\n");
+  if(SimpleFS_close(fo) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(saw) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(blackmarket) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(FFX) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(mtr2033) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(undertale) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(cryptopunk) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(SimpleFS_close(moonbeam) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  
+  printf("moving in jianl\n");
+  if(SimpleFS_changeDir(cur, "Jianl") == -1)
+  {
+       printf("test: changedir error, cannot move to '/'\n");
+    free(fs); free(disk); 
+    return -1; 
+  }
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  if(cur != NULL) SimpleFS_free_dir(cur);
+  free(fs);
+  free(disk);
+  printf("Closed everything, exiting...\n"); return 0;
+  
 }
