@@ -11,9 +11,11 @@
 // and a char that indicates the offset of the bit inside the array
 BitMapEntryKey BitMap_blockToIndex(int num) //num == posizione di blocco in memoria
 { 
-    BitMapEntryKey entry_k;
-    entry_k.entry_num = num / BYTE_DIM; //indice entry 
-    entry_k.bit_num = num % BYTE_DIM; //spiazzamento (resto divisione)
+    BitMapEntryKey entry_k = 
+    {
+        .entry_num = num / BYTE_DIM, //indice entry 
+        .bit_num = num % BYTE_DIM //spiazzamento (resto divisione)
+    };
     return entry_k;
 }
 

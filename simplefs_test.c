@@ -11,24 +11,6 @@
 
 const char* filename = "./test1.txt";
 
-FileBlock* init_block(char value)
-{
-	FileBlock* fb = (FileBlock*)malloc(sizeof(FileBlock));
-	if(fb == NULL)
-  {
-		printf("init_error: malloc on fb\n");
-		return NULL;
-	}
-
-	char data_block[BLOCK_SIZE - sizeof(BlockHeader)];
-
-	for(int i = 0; i < (BLOCK_SIZE - sizeof(BlockHeader)); i++) data_block[i] = value;
-
-	data_block[BLOCK_SIZE - sizeof(BlockHeader) -1] = '\0';
-	strcpy(fb->data, data_block); //(dest, src).
-	return fb;
-}
-
 int print_dir(DirectoryHandle* cur)
 {	
 	int* flag = (int*)malloc((cur->dcb->num_entries) * sizeof(int));
@@ -60,7 +42,7 @@ int print_dir(DirectoryHandle* cur)
     return -1;
   }
 	
-	printf("content of %s:\n\n",cur->dcb->fcb.name);
+	printf("content of %s:\t(Block in disk: %d)\n\n",cur->dcb->fcb.name, cur->dcb->fcb.block_in_disk);
 
   printf("Number of entries: %d\n\n", cur->dcb->num_entries);
 
@@ -73,9 +55,8 @@ int print_dir(DirectoryHandle* cur)
     {
 			if(names[i] != NULL) printf("%s\n",names[i]);
 		}
-    //printf("\tblock_num:%d\n", cur->dcb->file_blocks[i]);
 	} 
-  //for (int i = 0; i < cur->dcb->num_entries; i++) free(names[i]); 
+  for (int i = 0; i < cur->dcb->num_entries; i++) free(names[i]); 
   free(names);
   free(flag);
   return 0;
@@ -228,246 +209,138 @@ int main(int agc, char** argv)
     pos = 42; status = 5; ret = BitMap_set(bm1, pos, status); 
     printf("Setting position %d\tto %d\t", pos, status); !ret ? printf("[SUCCES]\n") : printf("[FAIL]\n");
     printf("Expected %d\tresult is %d\n", BitMap_get(bm1,  pos, status), pos);
-    
+    *//*
   printf("\nBITMAP OK!\n");
   free (bm); free(bm1); free(bm2);
   */
-  printf("\n------------------DISK_DRIVER TEST----------------------\n");
+  printf("\n------------------DISK_DRIVER TEST------------------------\n");
   
   if(remove(filename) == -1) printf("Error while trying to remove file\n");
     
-  printf("\nok\n");
-  DiskDriver* disk = (DiskDriver*) malloc(sizeof(DiskDriver)); //stampa no free block perchè al running precedente del test sono ancora allocati
-  printf("\nok1\n");
-  DiskDriver_init(disk, filename, 8);
+  int ret;
+
+  DiskDriver disk;
+ 
+  DiskDriver_init(&disk, filename, 8);
 
   printf("DiskDriver inizializzato-------------------\n\n");
     
-  DiskDriver_flush(disk);
+  DiskDriver_flush(&disk);
   printf("\nFlushTest OK\n\n");
 
-  DiskDriver_print(disk);
+  DiskDriver_print(&disk);
 
   printf("filename:\t%s\n", filename);
 
-  printf("\nCreating now 8 blocks:\n");
-    
-  FileBlock* fb_0 = init_block('0');
-  if(fb_0 == NULL)
+  char src[BLOCK_SIZE ]; char dest[BLOCK_SIZE ];
+
+  printf("\n-----------------------------[OPERAZIONI SU DISKDRIVER VUOTO, ASPETTARSI ERRORI]-----------------------\n");
+  printf("-------------READING\n");
+  for(int i = 0; i < disk.header->num_blocks; i++)
   {
-    printf("Impossibile inizializzare blocco 0 RIP\n");
-    return -1;
-  }
-  printf("Blocco 0 inizializzato!\n");
-
-  FileBlock* fb_1 = init_block('1');
-  if(fb_1 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 1 RIP\n");
-    return -1;
-  }
-  printf("Blocco 1 inizializzato!\n");
-
-  FileBlock* fb_2 = init_block('2');
-  if(fb_2 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 2 RIP\n");
-    return -1;
-  }
-  printf("Blocco 2 inizializzato!\n");
-
-  FileBlock* fb_3 = init_block('3');
-  if(fb_3 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 3 RIP\n");
-    return -1;
-  }
-  printf("Blocco 3 inizializzato!\n");
-
-  FileBlock* fb_4 = init_block('4');
-  if(fb_4 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 4 RIP\n");
-    return -1;
-  }
-  printf("Blocco 4 inizializzato!\n");
-
-  FileBlock* fb_5 = init_block('5');
-  if(fb_5 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 5 RIP\n");
-    return -1;
-  }
-  printf("Blocco 5 inizializzato!\n");
-
-  FileBlock* fb_6 = init_block('6');
-  if(fb_6 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 6 RIP\n");
-    return -1;
-  }
-  printf("Blocco 6 inizializzato!\n");
-
-  FileBlock* fb_7 = init_block('7');
-  if(fb_7 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 7 RIP\n");
-    return -1;
-  }
-  printf("Blocco 7 inizializzato!\n");
-
-    printf("--------------------------------------------------  Free test     --------------------------------------------------------------------------\n");
-
-  printf("\nLiberando blocchi scritti su disco nelle precedenti esecuzioni del test\n");
-  for(int i = 0; i < 8; i++) DiskDriver_freeBlock(disk, i);
-
-    printf("--------------------------------------------------  Get Free BLock test     ----------------------------------------------------------------\n");
-  printf("\nGetFreeBlock test\n");
-
-  for(int i = 0; i < 8; i++) printf("%d", DiskDriver_getFreeBlock(disk, i));
-    
-  printf("[CORRECT = 01234567]\n");
-    printf("--------------------------------------------------  Block writing --------------------------------------------------------------------------\n");
-
-  printf("\n\nEight blocks creates, writing them on disk!\n");
-
-    //------------------------------------------------------------0
-  printf("\nWriting block 0 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_0, 0) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-	  printf("Error: could not write block 0 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------1
-  printf("\nWriting block 1 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_1, 1) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 1 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------2
-  printf("\nWriting block 2 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_2, 2) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 2 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------3
-  printf("\nWriting block 3 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_3, 3) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 3 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------4
-  printf("\nWriting block 4 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_4, 4) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 4 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------5
-  printf("\nWriting block 5 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_5, 5) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-	  printf("Error: could not write block 5 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------6
-  printf("\nWriting block 6 to disk... \n");
-	if(DiskDriver_writeBlock(disk, fb_6, 6) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 6 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-
-        //------------------------------------------------------------7
-  printf("\nWriting block 7 to disk... \n");
-  if(DiskDriver_writeBlock(disk, fb_7, 7) == -1) //nella writeblock c'è la BM_get, che stampera "NO BLOCK WITH STATUS 1, returning -1", perchè giustamente tutti i blocchi sono liberi
-  {
-		printf("Error: could not write block 7 to disk\n");
-		return -1;
-	}
-
-  printf("\n");
-  DiskDriver_print(disk);
-  printf("\nDisk is FULL now!\n");
-  printf("\n\n------------------------------------[STATUS]--------------------------------\n");
-
-  DiskDriver_print(disk);
-
-  printf("\nTrying to write a block now that disk is full, should return ERR_VALUE\n");
-  FileBlock* fb_8 = init_block('8');
-  if(fb_8 == NULL)
-  {
-    printf("Impossibile inizializzare blocco 8 RIP\n");
-    return -1;
-  }
-
-  if(DiskDriver_writeBlock(disk, fb_8, 8) == -1) printf("Error: could not write block 8 to disk....as expected\n");
-
-  printf("\n");
-
-  printf("-------------------------------------------Reading test----------------------------\n");
-
-  FileBlock* aux = (FileBlock*) malloc(sizeof(FileBlock));
-
-  for(int i = 0; i < 8; i++)
-  {
-    printf("Reading block %d...\n", i);
-    if(DiskDriver_readBlock(disk, aux, i) == -1)
+    if(DiskDriver_readBlock(&disk, dest, i) != -1)
     {
-      printf("test_error: diskdriver readBlock");
+      printf("Expected error, got unknown...\n");
       return -1;
     }
-    printf("Read successfully:)\nDATA:\t%s\n", aux->data);
-  }
-
-  printf("Liberando blocchi now\n");
-
-  for(int i = 0; i < 8; i++) 
-  {
-    printf("Freeing block %d...\n", i);
-    if(DiskDriver_freeBlock(disk, i) == -1)
+    else
     {
-      printf("test_error: diskdriver readBlock");
-      return -1;
+      printf("...as expected\n");
     }
   }
 
+  printf("-------------FREEING\n");
+  for(int i = 0; i < disk.header->num_blocks; i++)
+  {
+    if(DiskDriver_freeBlock(&disk, i) != 0)
+    {
+      printf("Expected error, got unknown...iteration %d\n", i);
+      return -1;
+    }
+    else
+    {
+      printf("...as expected\n");
+    }
+  }
+
+  printf("\n----------------------------- [GETFREEBLOCK TEST__CROSSCHECK] -----------------------\n");
+  BitMap* bm_d = (BitMap*) malloc(sizeof(BitMap));
+  bm_d->entries = disk.bitmap_data; bm_d->num_bits = disk.header->bitmap_blocks;
+  for(int i = 0; i < disk.header->num_blocks; i++)
+  {
+    int ret = DiskDriver_getFreeBlock(&disk, i);
+    int ret_1 = BitMap_get(bm_d, i, 0);
+    if(ret == -1)
+    {
+      printf("getFreeBlock error\n"); return -1;
+    }
+    printf("(DiskDriver_getFreeBlock:%d\tBitMap_get:%d\texpected: %d)\n", ret, ret_1, i);
+  }
+  free(bm_d);
+  //-----------------------------------------------------------------------------------------------------------------------------------
   printf("\n\nDONE...ENDING\n");
 
-  free(disk);
-  free(fb_0); free(fb_1); free(fb_2); free(fb_3); free(fb_4); free(fb_5); free(fb_6); free(fb_7); free(fb_8);
-  free(aux);
+  for(int i = 0; i < BLOCK_SIZE; i++) src[i] = 'D';
+  src[BLOCK_SIZE - 1] = '\0';
+
+  printf("\n----------------------------- [DD WR] -----------------------\n");
+
+//SCRITTURA BLOCCHI
+for(int i = 0; i < disk.header->num_blocks; i++)
+{
+ int ret = DiskDriver_writeBlock(&disk, src, i);
+
+  if(ret == -1)
+  {
+    printf("disk_wr error\n");
+    return -1;
+  }
+  printf("Wrote %d bytes in block %d\n\n", ret, i);
+  printf("\n\n------[DISK STATUS]-------\n");
+  DiskDriver_print(&disk);
+}
+  printf("\n----------------------------- [DD RD] -----------------------\n");
+
+
+for(int i = 0; i < disk.header->num_blocks; i++)
+{
+  ret = DiskDriver_readBlock(&disk, dest, i);
+
+  if(ret == -1)
+  {
+    printf("disk_wr error\n");
+    return -1;
+  }
+
+  printf("\nContent_disk_1:\n%s", dest);
   
+}
+  printf("  \n-------------FREEING\n");
+  for(int i = 0; i < disk.header->num_blocks; i++)
+  {
+    if(DiskDriver_freeBlock(&disk, i) == -1)
+    {
+      printf("Free error...iteration %d\n", i);
+      return -1;
+    }
+    
+  }
+
+  printf("\n----------------------------- [FREE BLOCK PRINT] -----------------------\n");
+
+  for(int i = 0; i < disk.header->num_blocks; i++)
+  {
+    int ret = DiskDriver_getFreeBlock(&disk, i);
+    if(ret == -1)
+    {
+      printf("getFreeBlock error\n"); return -1;
+    }
+    printf("(DiskDriver_getFreeBlock:%d\t\texpected: %d)\n", ret, i);
+  }
+
+
+
+
   printf("\n-----------------------------[DISKDRIVER_TEST DONE]-----------------------\n");
   
   if(remove(filename) == -1)
@@ -478,9 +351,9 @@ int main(int agc, char** argv)
   
   printf("\n-----------------------------[SIMPLEFS_TEST]------------------------------\n");
 
-  disk = (DiskDriver*) malloc(sizeof(DiskDriver)); //stampa no free block perchè al running precedente del test sono ancora allocati
-  DiskDriver_init(disk, filename, 100);
-  DiskDriver_flush(disk);
+
+  DiskDriver_init(&disk, filename, 100); //DiskDriver_init(&disk, filename, 7);
+  DiskDriver_flush(&disk);
   SimpleFS* fs = (SimpleFS*) malloc(sizeof(SimpleFS));
   if(fs == NULL)
   {
@@ -490,26 +363,20 @@ int main(int agc, char** argv)
 
   printf("Created diskdriver with 100 blocks\n");
   printf("\n");
-  DiskDriver_print(disk); printf("\n");
+  DiskDriver_print(&disk); printf("\n");
 
-  DirectoryHandle* cur = SimpleFS_init(fs, disk);
+  DirectoryHandle* cur = SimpleFS_init(fs, &disk);
   if(cur == NULL)
   {
     printf("test_error: sfs not initialized!!\n");
 
-    printf("Need format!\n");
-    printf("formatting...\n\n");
-    SimpleFS_format(fs);
-
-    cur = SimpleFS_init(fs, disk);
+   return -1;
   } 
-  else
-  {
-    printf("Success, recovering structures\n");
-    cur = SimpleFS_init(fs, disk);
-  }
-    
-  printf("Current directory: %s\n", cur->dcb->fcb.name);
+
+  printf("Current directory: %s\tBlock in disk: %d\n", cur->dcb->fcb.name, cur->dcb->fcb.block_in_disk);
+
+  /*printf("DOUBT CHEK\n\n");
+  printf("%d\t%d\t%d\n", disk.header->first_free_block, DiskDriver_getFreeBlock(&disk, 0), DiskDriver_getFreeBlock(&disk, disk.header->first_free_block));*/
 
   printf("------------------------[CREATING FILES]----------------------------------\n");
 
@@ -519,7 +386,7 @@ int main(int agc, char** argv)
   if(polkadot == NULL)
   {
     printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
   }
 
@@ -527,7 +394,7 @@ int main(int agc, char** argv)
   if(cardano == NULL)
   {
     printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
   }
 
@@ -535,7 +402,7 @@ int main(int agc, char** argv)
   if(kusama == NULL)
   {
     printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
   }
 
@@ -543,7 +410,7 @@ int main(int agc, char** argv)
   if(monero == NULL)
   {
     printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
   }
 
@@ -551,23 +418,136 @@ int main(int agc, char** argv)
   if(moonriver == NULL)
   {
     printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
   }
 
-  printf("Five files created: polkadot.txt, kusama.txt, monero.txt, moonriver.txt, cardano.txt\n");
-  printf("\n--------------------[READING DIRECTORY]---------------------------------\n\n");
-	
-	  //Leggo il contenuto della directory /
-	if(print_dir(cur) == -1)
+  /*FileHandle* joe = SimpleFS_createFile(cur, "joe.txt");
+  if(joe == NULL)
   {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
+    printf("Errore in creazione file, RIP");
+    free(fs); 
+    return -1;
+  }*/
 
-  printf("Provo a creare un file già esistente, kusama, dovrebbe dare errore\n");
-  FileHandle* kusama_dup = SimpleFS_createFile(cur, "kusama.txt");
+  printf("Five files created: polkadot.txt, kusama.txt, monero.txt, moonriver.txt, cardano.txt\n");
+  //printf("Six files created: polkadot.txt, kusama.txt, monero.txt, moonriver.txt, cardano.txt, joe.txt\n");
+  
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+  
+  if(SimpleFS_close(polkadot) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  if(SimpleFS_close(cardano) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  if(SimpleFS_close(kusama) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+   if(SimpleFS_close(monero) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  if(SimpleFS_close(moonriver) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  printf("\nCreating another file after previously closing the other five\n");
+  
+  FileHandle* joe = SimpleFS_createFile(cur, "joe.txt");
+  if(joe == NULL)
+  {
+    printf("Errore in creazione file, RIP");
+    free(fs); 
+    return -1;
+  }
+  
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+
+  if(SimpleFS_close(joe) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  printf("\n\n------------[DISK STATUS]-----------\n\n");
+  DiskDriver_print(fs->disk);
+
+  printf("Trying to fill the whole disk\n");
+
+  int i = disk.header->first_free_block;
+  while(disk.header->first_free_block != -1)
+  {
+    
+    char name[10]; 
+    sprintf(name,"%d_fh.txt", i);
+    printf("\n");
+    FileHandle* fh = SimpleFS_createFile(cur, name);
+    if(fh == NULL)
+    {
+    printf("Errore in creazione file, RIP");
+    free(fs); 
+    return -1;
+    }
+    if(SimpleFS_close(fh) == -1)
+    {
+      printf("Error: could not close file\n");
+	    free(fs); 
+	    return -1;
+    }
+    i += 1;
+  }
+
+  DiskDriver_print(fs->disk);
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+
+  printf("Trying now to create another file, should be full\n");
+
+  FileHandle* eth = SimpleFS_createFile(cur, "eth.txt");
+  if(eth != NULL)
+  {
+    printf("Errore in creazione file, expected error, RIP\n");
+    free(fs); 
+    return -1;
+  } printf("...as expected\n");
+  
+
+  
+  
 
   printf("\n-------------------------[OPENING TEST]-------------------------------\n");
 
@@ -575,8 +555,8 @@ int main(int agc, char** argv)
   FileHandle* dot_fh = SimpleFS_openFile(cur, "polkadot.txt");
   if(dot_fh == NULL)
   {
-    printf("Errore in apertura file, RIP");
-    free(fs); free(disk);
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
     return -1;
   }
   printf("File %s opened, closing now...\n", dot_fh->fcb->fcb.name);
@@ -585,23 +565,154 @@ int main(int agc, char** argv)
   FileHandle* ksm_fh = SimpleFS_openFile(cur, "kusama.txt");
   if(ksm_fh == NULL)
   {
-    printf("Errore in apertura file, RIP");
-    free(fs); free(disk);
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
     return -1;
   }
-  printf("File %s opened, closing now...\n", ksm_fh->fcb->fcb.name);
+  printf("\nFile %s opened, closing now...\n", ksm_fh->fcb->fcb.name);
   SimpleFS_close(ksm_fh);
 
   FileHandle* ada_fh = SimpleFS_openFile(cur, "cardano.txt");
   if(ada_fh == NULL)
   {
-    printf("Errore in apertura file, RIP");
-    free(fs); free(disk);
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
+    return -1;
+  }
+  printf("\nFile %s opened, closing now...\n", ada_fh->fcb->fcb.name);
+  SimpleFS_close(ada_fh);
+
+  FileHandle* mo_fh = SimpleFS_openFile(cur, "monero.txt");
+  if(mo_fh == NULL)
+  {
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
+    return -1;
+  }
+  printf("\nFile %s opened, closing now...\n", mo_fh->fcb->fcb.name);
+  SimpleFS_close(mo_fh);
+
+  FileHandle* movr = SimpleFS_openFile(cur, "moonriver.txt");
+  if(movr == NULL)
+  {
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
+    return -1;
+  }
+  printf("\nFile %s opened, closing now...\n", movr->fcb->fcb.name);
+  SimpleFS_close(movr);
+  //apro file casualmente
+  i = 7;
+  while(cur->dcb->file_blocks[i] != -1 && i < 99)
+  {
+    if( i%11 == 0)
+    {
+      char name[10]; 
+      sprintf(name,"%d_fh.txt", i);
+      printf("\n");
+      FileHandle* fh = SimpleFS_openFile(cur, name);
+      if(fh == NULL)
+      {
+        printf("Errore in creazione file, RIP");
+        free(fs); 
+        return -1;
+      }
+      printf("\nFile %s opened, closing now...\n", fh->fcb->fcb.name);
+      SimpleFS_close(fh);
+    }
+    i += 1;
+  }
+
+  printf("------------------------[WRRD TEST]---------------------\n");
+  printf("Per scrivere in un file bisogna aprirlo\n");
+  int bw = 0, br = 0;
+  char* tw = "Fender Stratocaster made in Japan, 1989";
+  char tr[1024];
+
+  polkadot = SimpleFS_openFile(cur, "polkadot.txt");
+  if(polkadot == NULL)
+  {
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
     return -1;
   }
 
-  printf("File %s opened, closing now...\n", ada_fh->fcb->fcb.name);
-  SimpleFS_close(ada_fh);
+  //printf("OK\n");
+  bw = SimpleFS_write(polkadot, tw, strlen(tw));
+  if(bw != strlen(tw))
+  {
+    printf("Error: write eror\n");
+    free(fs);
+    return -1;
+  }
+  printf("Wrote %d bytes in %s\n", bw, polkadot->fcb->fcb.name);
+
+  printf("Reading now!\n");
+
+  br = SimpleFS_read(polkadot, tr, bw);
+  if(br != bw)
+  {
+    printf("Error: read eror\n");
+    free(fs); 
+    return -1;
+  }
+  printf("%d byte letti in %s\nContenuto: '%s'\n", br, polkadot->fcb->fcb.name, tr);
+  memset(tr, 0, strlen(tr));
+  
+
+  cardano = SimpleFS_openFile(cur, "cardano.txt");
+  if(cardano == NULL)
+  {
+    printf("Errore in apertura file, RIP\n");
+    free(fs); 
+    return -1;
+  }
+
+  tw = "Amor che move l'sole e l'altre stelle";
+  //printf("OK\n");
+  bw = SimpleFS_write(cardano, tw, strlen(tw));
+  if(bw != strlen(tw))
+  {
+    printf("Error: write eror\n");
+    free(fs);
+    return -1;
+  }
+  printf("Wrote %d bytes in %s\n", bw, cardano->fcb->fcb.name);
+
+  printf("Reading now!\n");
+
+  br = SimpleFS_read(cardano, tr, bw);
+  if(br != bw)
+  {
+    printf("Error: read eror\n");
+    free(fs); 
+    return -1;
+  }
+  printf("%d byte letti in %s\nContenuto: '%s'\n", br, cardano->fcb->fcb.name, tr);
+  memset(tr, 0, strlen(tr));
+  SimpleFS_close(cardano);
+
+  printf("------------------------[SEEK TEST]---------------------\n");
+  tw = "Fender Stratocaster made in Japan, 1989";
+  int offset = 10;
+  if(SimpleFS_seek(polkadot, offset) == -1)
+  {
+    printf("SEEK_ERROR\n");
+    SimpleFS_close(polkadot);
+    return -1;
+  }
+  br = SimpleFS_read(polkadot, tr, strlen(tw) - offset);
+  if(br != strlen(tw) - offset)
+  {
+    printf("Error: read eror\n");
+    free(fs); 
+    return -1;
+  }
+  printf("%d byte letti in %s\nContenuto: '%s'\n", br, polkadot->fcb->fcb.name, tr);
+  memset(tr, 0, strlen(tr));
+
+  SimpleFS_close(polkadot);
+  /*
 
   printf("\n--------------------[MAKING NEW DIRECTORY]---------------------------------\n\n");
 
@@ -627,36 +738,9 @@ int main(int agc, char** argv)
 	  return -1;
 	}
 
-  printf("\n--------------------[WR/RD TEST]---------------------------------\n\n");
-  
-  printf("Scrivo su tre file, polkadot, cardano e kusama\n\n");
 
-  printf("---------------------------DOT WRRD------------------------------\n\n");
 
-  int bw = 0, br = 0;
-  char* tw = "Fender Stratocaster made in Japan, 1989";
-  char* tr = (char*) malloc(sizeof(char));
-
-  bw = SimpleFS_write(polkadot, tw, strlen(tw));
-  if(bw != strlen(tw))
-  {
-    printf("Error: write eror\n");
-    free(fs); free(disk); free(tr);
-    return -1;
-  }
-  printf("Wrote %d bytes in %s\n", bw, polkadot->fcb->fcb.name);
-
-  printf("Reading now!\n");
-
-  br = SimpleFS_read(polkadot, tr, bw);
-  if(br != bw)
-  {
-    printf("Error: read eror\n");
-    free(fs); free(disk); free(tr);
-    return -1;
-  }
-  printf("%d byte letti in %s\nContenuto: '%s'\n", br, polkadot->fcb->fcb.name, tr);
-  memset(tr, 0, strlen(tr));
+ 
 
   //---------------------------------------
   if(print_dir(cur) == -1)
@@ -777,7 +861,7 @@ int main(int agc, char** argv)
   }
   printf("OK\n");
 
-  if(print_dir(cur) != -1) //expected error cuz empty
+  if(print_dir(cur) != 0) //expected empty msg
   {
 	  printf("Error: could not read current dir.\n");
 	  free(fs); free(disk); 
@@ -800,34 +884,34 @@ int main(int agc, char** argv)
 	}
 
   printf("\n\nRemoving 2 files\n");
-
-  if(SimpleFS_remove(cur, "monero.txt")  == -1)
-  {
-    printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
   if(SimpleFS_close(monero) == -1)
   {
     printf("Error: could not close file\n");
 	  free(fs); free(disk);
 	  return -1;
   }
-  printf("Monero removed\n");
-  //free(monero);
-
-  if(SimpleFS_remove(cur, "moonriver.txt")  == -1)
+  if(SimpleFS_remove(cur, "monero.txt")  == -1)
   {
     printf("Error: could not read current dir.\n");
 	  free(fs); free(disk);
 	  return -1;
   }
+  
+  printf("Monero removed\n");
+  //free(monero);
   if(SimpleFS_close(moonriver) == -1)
   {
     printf("Error: could not close file\n");
 	  free(fs); free(disk);
 	  return -1;
   }
+  if(SimpleFS_remove(cur, "moonriver.txt")  == -1)
+  {
+    printf("Error: could not read current dir.\n");
+	  free(fs); free(disk);
+	  return -1;
+  }
+  
   printf("moonriver removed\n");
   //free(moonriver);
 
@@ -1130,6 +1214,8 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
+  ///////////////////////////////////////////////////////
+
   printf("\n---------------------------------[NAVIGATING THROUGH THE FS]-------------------------\n \n");
   printf("\nGoing to VIdeogames\n");
   if(SimpleFS_changeDir(cur, "Videogames") == -1)
@@ -1139,7 +1225,7 @@ int main(int agc, char** argv)
     return -1; 
   }
   printf("OK\n");
-    if(print_dir(cur) == -1)
+  if(print_dir(cur) == -1)
   {
 	  printf("Error: could not read current dir.\n");
 	  free(fs); free(disk);
@@ -1194,6 +1280,7 @@ int main(int agc, char** argv)
     free(fs); free(disk); 
     return -1; 
   }
+
   printf("OK\n");
     if(print_dir(cur) == -1)
   {
@@ -1265,6 +1352,8 @@ int main(int agc, char** argv)
 	  return -1;
   }
   
+
+
   printf("moving in jianl\n");
   if(SimpleFS_changeDir(cur, "Jianl") == -1)
   {
@@ -1278,9 +1367,12 @@ int main(int agc, char** argv)
 	  free(fs); free(disk);
 	  return -1;
   }
+  
+  printf("Closed everything, exiting...\n"); */
   if(cur != NULL) SimpleFS_free_dir(cur);
+
   free(fs);
-  free(disk);
-  printf("Closed everything, exiting...\n"); return 0;
+
+  return 0;
   
 }

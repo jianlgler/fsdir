@@ -75,6 +75,7 @@ void FS_rm(int argc, char* argv[2])
     }
 
     if(SimpleFS_remove(cur, argv[1]) == -1) printf("rm_error: cannot remove %s \n", argv[1]);
+    printf("[REMOVED SUCCESSFULLY]\n");
 }
 
 void FS_mkdir(int argc, char* argv[2])
@@ -96,13 +97,9 @@ void FS_touch(int argc, char* argv[2])
         return;
     } 
 
-    FileHandle* fh = SimpleFS_createFile(cur, argv[1]);
-
-    if(fh == NULL)
-    {
-        printf("touch_error: cannot create file %s\n", argv[1]);
-        SimpleFS_close(fh);
-    } 
+    if(SimpleFS_createFile(cur, argv[1]) == NULL) printf("touch_error: cannot create file %s\n", argv[1]);
+     
+    
 }
 
 void FS_cd(int argc, char* argv[2])
@@ -128,31 +125,29 @@ void FS_ls()
         free(flags);
 		return;
 	}
-	for (int i = 0; i < cur->dcb->num_entries; i++) 
-    {
-		flags[i] = -1;
-	}
-
+	for (int i = 0; i < cur->dcb->num_entries; i++) flags[i] = -1;
+	
 	char** names = (char**)malloc((cur->dcb->num_entries) * sizeof(char*)); //array di stringhe
 	if(names == NULL)
     {
-		fprintf(stderr,"ls_error in readDirectory: malloc of contents.\n");
+		printf("ls_error in readDirectory: malloc of names.\n");
         free(flags);
         free(names);
 		return;
 	}
-	for (int i = 0; i < (cur->dcb->num_entries); i++) 
-    {
-		names[i] = (char*)malloc(128*sizeof(char)); //inizializzo ogni stringa
-	}
-	
+	for (int i = 0; i < (cur->dcb->num_entries); i++) names[i] = (char*)malloc(128*sizeof(char)); //inizializzo ogni stringa
+
+	printf("[SHELLTEST]\n");
     if(SimpleFS_readDir(names, cur, flags) == -1) //lettura e inizializzazione array di interesse
     {
-    printf("ls_error: could not use readDir\n");
-    free(flags);
-    free(names);
-    return;
+        printf("ls_error: could not use readDir\n");
+        free(flags);
+        free(names);
+        return;
     }
+
+    printf("content of %s:\n\n",cur->dcb->fcb.name);
+    printf("Number of entries: %d\n\n", cur->dcb->num_entries);
 
     for (int i = 0; i < cur->dcb->num_entries; i++) 
     {
@@ -174,13 +169,7 @@ void FS_wr(int argc, char* argv[2], int start_pos)
         printf("wr_error: wrong starting position \n");
         return;
     } 
-
-    if(argc != 2)
-    {
-        printf("wr_error: you must use 'wr <file_name>' \n");
-        return;
-    } 
-
+    
     FileHandle* fh = SimpleFS_openFile(cur, argv[1]);
     if(fh == NULL)
     {
@@ -286,6 +275,8 @@ int main(int argc, char** argv[2])
     printf("Type 'help' for command list\n");
 
     char cmd[256];
+    ////////////////////////////
+    ////////////////////////////
 
     while(1)
     {
@@ -311,6 +302,12 @@ int main(int argc, char** argv[2])
         else if (strcmp(argv[0], "cd") == 0) FS_cd(argc, argv); 
         else if (strcmp(argv[0], "wr") == 0) 
         {
+            if(argv[1] == NULL)//(argc != 2)
+            {
+                printf("wr_error: you must use 'wr <file_name>' \n");
+                continue;
+            } 
+            
             int start = 0;
             printf("\n>Insert starting position\t");
             scanf("%d", &start);

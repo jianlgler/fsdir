@@ -10,13 +10,13 @@
 
 DiskHeader* DiskDriver_initialize_header(DiskHeader* disk_header, int fd, size_t size)
 {
-        int ret = ftruncate(fd, size);//posix_fallocate(fd, 0, header_size);
-        if(ret)  
-        {
-            close(fd);
-            printf("Error f-allocating, returning\n");
-            return NULL;
-        }
+    int ret = ftruncate(fd, size);//posix_fallocate(fd, 0, header_size); otherwise bus error
+    if(ret)  
+    {
+        close(fd);
+        printf("Error f-allocating, returning\n");
+        return NULL;
+    }
 
     disk_header = (DiskHeader*) mmap(0, size, PROT_READ|PROT_WRITE,MAP_SHARED, fd, 0);
     // allocates the necessary space on the disk
@@ -40,11 +40,9 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 
     int fd, ret;
 
-    
-
-    int bitmap_size = num_blocks % BYTE_DIM == 0 ? num_blocks / BYTE_DIM : ((num_blocks / BYTE_DIM) + 1); // calculates how big the bitmap should be
-    
-    size_t header_size = sizeof(DiskHeader) + bitmap_size + num_blocks*BLOCK_SIZE;
+    int bitmap_entries = (num_blocks / BYTE_DIM) + 1; // calculates how big the bitmap should be
+ 
+    size_t size = sizeof(DiskHeader) + bitmap_entries+ num_blocks*BLOCK_SIZE;
 
     // opens the file (creating it if necessary)
     if(access(filename, F_OK) == 0) //already exists
@@ -57,7 +55,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
             printf("Error opening file, fd is -1, A\n");
             return;
         } 
-        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);
+        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, size);
 
         disk->header = hdr;
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore alla mappa, skippo header
@@ -76,11 +74,11 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         } 
 
         
-        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, header_size);  
+        DiskHeader* hdr = DiskDriver_initialize_header(hdr, fd, size);  
          // if the file was new compiles a disk header, and fills in the bitmap of appropriate size with all 0 (to denote the free space);
         hdr->num_blocks = num_blocks;
         hdr->bitmap_blocks = num_blocks;
-        hdr->bitmap_entries = bitmap_size;
+        hdr->bitmap_entries = bitmap_entries;
         hdr->free_blocks = num_blocks;
         hdr->first_free_block = 0;
 
@@ -88,7 +86,7 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
         disk->bitmap_data = (char*) hdr + sizeof(DiskHeader); //puntatore all'area mappata skipapto di DiskHeader
         disk->fd = fd;
 
-        memset(disk->bitmap_data, 0, bitmap_size); //bit a zero
+        memset(disk->bitmap_data, 0, bitmap_entries); //bit a zero
         
     }
 
@@ -135,42 +133,16 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
         printf("Block is free, returning -1\n");
         return -1; //blocco libero, nulla da leggere
     }
-    int fd = disk->fd;
     
-    int pos = sizeof(DiskHeader) + disk->header->bitmap_entries + (block_num*BLOCK_SIZE);
     //mi sposto all'offset e leggo byte per byte un blocco
 
-    if(lseek(fd, pos, SEEK_SET) == -1) 
-    {
-        printf("FSEEK_error: Invalid offset, %d, returning -1\n", pos);
-        return -1;
-    }
-
-    int ret, bytes_reads = 0;
+    int blocks_start = sizeof(DiskHeader) + disk->header->bitmap_entries; //offset a dove punta disk->header->bitmap_data
+    void* block = (void*) disk->header + blocks_start + block_num*BLOCK_SIZE; //effettivo puntatore 
+    memcpy(dest, block, BLOCK_SIZE);
     
-	while(bytes_reads < BLOCK_SIZE)
-    { 
-        //lettura byte x byte blocco dim fissa
-		ret = read(fd, dest + bytes_reads, BLOCK_SIZE - bytes_reads);
-
-		if (ret == -1)
-        {
-            if(errno == EINTR) continue;
-            else
-            {
-                printf("Error while reading, returning -1\n");
-                return -1;
-            }
-        }
-		if (ret == 0) break;
-		
-		bytes_reads +=ret;
-	}
-
     //printf("Done\n");
     return 0;
 }
-
 
 // writes a block in position block_num, and alters the bitmap accordingly
 // returns -1 if operation not possible
@@ -207,7 +179,14 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
         printf("Block already in use, returning -1\n"); return -1; //blocco già in utilizzo, nulla da leggere
     }
 
-    int fd = disk->fd;
+    int fd = disk->fd;  
+    /*
+    off_t blocks_start = (off_t) sizeof(DiskHeader) + disk->header->bitmap_entries; //offset a dove punta disk->header->bitmap_data
+    
+    void* block = (void*) disk->header + blocks_start + block_num*BLOCK_SIZE; //effettivo puntatore     
+   
+    memcpy(block, src, BLOCK_SIZE);*/ //usare questo metodo da un errore con valgrind
+
     int pos = sizeof(DiskHeader) + disk->header->bitmap_entries + (block_num*BLOCK_SIZE);
 
     if(lseek(fd, pos, SEEK_SET) == -1) 
@@ -237,25 +216,24 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
     {
         printf("Error while reading"); return -1;
     }
-    //alterare stato blocco in bitmap
-
-    ret = BitMap_set(&bm, block_num, 1);
-    if(ret) 
+    
+    if(BitMap_set(&bm, block_num, 1) == -1) 
     {
         printf("Impossibile modificare stato del blocco desiderato"); return -1;
     }
     disk->header->free_blocks -= 1;
     
-    disk->header->first_free_block = DiskDriver_getFreeBlock(disk, block_num + 1);
+    disk->header->first_free_block = DiskDriver_getFreeBlock(disk, block_num);
 
     if(DiskDriver_flush(disk) == -1)
     {
         printf("Cannot ensure writing on disk\n");
         return -1;
     }
-
-    return 0; 
+    
+    return BLOCK_SIZE; 
 }
+
 
 // frees a block in position block_num, and alters the bitmap accordingly
 // returns -1 if operation not possible
@@ -291,9 +269,9 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
     }
 
     disk->header->free_blocks += 1;
-
-    if(block_num < disk->header->first_free_block) disk->header->first_free_block = block_num;
-   
+    disk->header->first_free_block = BitMap_get(&bm, 0, 0);//DiskDriver_getFreeBlock(disk, 0);
+    //if(block_num < disk->header->first_free_block) disk->header->first_free_block = block_num;
+    //printf("Block %d freed\n", block_num);
     return 0; 
 }
 
@@ -324,19 +302,19 @@ int DiskDriver_getFreeBlock(DiskDriver* disk, int start)
         printf("NO free block, returning -1\n");
         return -1;
     }
-    return BitMap_get(&bm, start, 0);;
+    return BitMap_get(&bm, start, 0);
 }
 
 // writes the data (flushing the mmaps)
 int DiskDriver_flush(DiskDriver* disk)
-{
+{  
     if(disk == NULL)
     {
         printf("Invalid param (disk), returning -1\n");
         return -1;
     }
-    //printf("Flushing...\n");
-    int size = sizeof(DiskHeader) + disk->header->bitmap_entries + (disk->header->num_blocks*BLOCK_SIZE);
+    //printf("Flushing...\n");      //entries dim                  blocklist dim
+    size_t size = sizeof(DiskHeader) + disk->header->bitmap_entries + (disk->header->num_blocks*BLOCK_SIZE);
     /*
     The program maps a region of memory using mmap. It then modifies the mapped region. 
     The system isn't required to write those modifications back to the underlying file immediately, so a read call on that file (in ioutil.ReadAll) could return the prior contents of the file.
@@ -358,7 +336,7 @@ int DiskDriver_flush(DiskDriver* disk)
         printf("Cannot execute msync, returning -1\n");
         return -1;
     } 
-
+    //printf("\nFlush OK\n");
     return 0;
 }
 
