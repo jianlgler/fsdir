@@ -30,8 +30,10 @@ int print_dir(DirectoryHandle* cur)
 		return -1;
 	}
 	
-	for (int i = 0; i < (cur->dcb->num_entries); i++) names[i] = (char*)malloc(128*sizeof(char));
-	
+	//for (int i = 0; i < (cur->dcb->num_entries); i++) names[i] = (char*)malloc(128*sizeof(char)); non serve + xk usiamo strdup in readdir
+	//printf("content of %s:\t(Block in disk: %d)\n\n",cur->dcb->fcb.name, cur->dcb->fcb.block_in_disk);
+
+  printf("Number of entries: %d\n\n", cur->dcb->num_entries);
 	//printf("\nSUPPPP\n");
   if(SimpleFS_readDir(names, cur, flag) == -1)
   {
@@ -41,10 +43,6 @@ int print_dir(DirectoryHandle* cur)
     free(names);
     return -1;
   }
-	
-	printf("content of %s:\t(Block in disk: %d)\n\n",cur->dcb->fcb.name, cur->dcb->fcb.block_in_disk);
-
-  printf("Number of entries: %d\n\n", cur->dcb->num_entries);
 
   for (int i = 0; i < cur->dcb->num_entries; i++) 
   {
@@ -61,6 +59,7 @@ int print_dir(DirectoryHandle* cur)
   free(flag);
   return 0;
 }
+
 
 int main(int agc, char** argv) 
 { 
@@ -627,7 +626,7 @@ for(int i = 0; i < disk.header->num_blocks; i++)
   printf("Per scrivere in un file bisogna aprirlo\n");
   int bw = 0, br = 0;
   char* tw = "Fender Stratocaster made in Japan, 1989";
-  char tr[1024];
+  char tr[1024] = " ";
 
   polkadot = SimpleFS_openFile(cur, "polkadot.txt");
   if(polkadot == NULL)
@@ -711,664 +710,294 @@ for(int i = 0; i < disk.header->num_blocks; i++)
   printf("%d byte letti in %s\nContenuto: '%s'\n", br, polkadot->fcb->fcb.name, tr);
   memset(tr, 0, strlen(tr));
 
+  if(SimpleFS_seek(polkadot, 0) == -1)
+  {
+    printf("SEEK_ERROR\n");
+    SimpleFS_close(polkadot);
+    return -1;
+  }
+
+  printf("\nRiporto il cursore di polkadot a 0\n");
+
   SimpleFS_close(polkadot);
-  /*
+
+
+  printf("\n--------------------[REMOVE TEST]---------------------------------\n\n");
+
+  if(SimpleFS_remove(cur, "joe.txt") == -1)
+  {
+    printf("RMV error\n");
+    return -1;
+  }
+
+  DiskDriver_print(fs->disk);
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+  printf("asd\n");
+  i = 7;
+  while(cur->dcb->file_blocks[i] != -1 && i < 99)
+  {    
+    char name[10]; 
+    sprintf(name,"%d_fh.txt", i);
+    printf("\n");
+    if(SimpleFS_remove(cur, name) == -1)
+    {
+      printf("RMV error\n");
+      return -1;
+    }
+    i += 1;
+  }
+  printf("\n\n");
+  DiskDriver_print(fs->disk);
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+
+  printf("Recreating joe \n");
+
+  joe = SimpleFS_createFile(cur, "joe.txt");
+  if(joe == NULL)
+  {
+    printf("Errore in creazione file, RIP");
+    free(fs); 
+    return -1;
+  }
+  
+  if(print_dir(cur) == -1)
+  {
+    printf("Errore print dir, RIP");
+    free(fs); 
+    return -1;
+  }
+
+  if(SimpleFS_close(joe) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+  
+  //printf("COPYING ROOT\n");
+  //DirectoryHandle* root = (DirectoryHandle*) malloc(sizeof(DirectoryHandle));
+  //memcpy(root, cur, sizeof(DirectoryHandle));
+
 
   printf("\n--------------------[MAKING NEW DIRECTORY]---------------------------------\n\n");
+  
 
   if(SimpleFS_mkDir(cur, "Jianl") == -1)
   {
     printf("Errore mkdir, RIP");
-    free(fs); free(disk);
+    free(fs); 
     return -1;
-  } printf("Directory named 'Jianl' created :)\nCreating now directory with same name, error expected\n");
-
-  if(SimpleFS_mkDir(cur, "Jianl") != -1)
-  {
-    printf("Errore mkdir, RIP");
-    free(fs); free(disk);
-    return -1;
-  } printf("\n...as expected\n");
-
-  printf("Contenuto directory:\n\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
-
-
-
- 
-
-  //---------------------------------------
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk); free(tr);
-	  return -1;
-	}
-
-  
-  printf("---------------------------ADA WRRD------------------------------\n\n");
-  tw = "Gymnopedie - Erik Satie";
-
-  bw = SimpleFS_write(cardano, tw, strlen(tw));
-  if(bw != strlen(tw))
-  {
-    printf("Error: write eror\n");
-    free(fs); free(disk); free(tr);
-    return -1;
-  }
-  printf("Wrote %d bytes in %s\n", bw, cardano->fcb->fcb.name);
-
-  printf("Reading now!\n");
-
-  br = SimpleFS_read(cardano, tr, bw);
-  if(br != bw)
-  {
-    printf("Error: read eror\n");
-    free(fs); free(disk); free(tr);
-    return -1; 
   } 
-  printf("%d byte letti in %s\nContenuto: '%s'\n", br, cardano->fcb->fcb.name, tr);
-  
-  memset(tr, 0, strlen(tr));
-  //----------------------------------------
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk); free(tr);
-	  return -1;
-	}
-  printf("---------------------------KSM WRRD------------------------------\n\n");
-  tw = "BlowUp - Michelangelo Antonioni\tMasculine Feminine - Jean-Luc Godard\tDillinger is dead - Marco Ferreri";
-  
-  bw = SimpleFS_write(kusama, tw, strlen(tw));
-  if(bw != strlen(tw))
-  {
-    printf("Error: write eror\n");
-    free(fs); free(disk); free(tr);
-    return -1;
-  }
-  printf("Wrote %d bytes in %s\n", bw, kusama->fcb->fcb.name);
-
-  printf("Reading now!\n");
-
-  br = SimpleFS_read(kusama, tr, bw);
-  if(br != bw)
-  {
-    printf("Error: read eror\n");
-    free(fs); free(disk); free(tr);
-    return -1; 
-  }
-  printf("%d byte letti in %s\nContenuto: '%s'\n", br, kusama->fcb->fcb.name, tr);
-
-  memset(tr, 0, strlen(tr));
-
-  //---------------------------------------
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk); free(tr);
-	  return -1;
-	}
- 
-
-  printf("\n\n----------------------------[SEEK TEST]----------------------------\n\n");
-
-  tw = "Fender Stratocaster made in Japan, 1989";
-  bw = strlen(tw);
-
-  if(SimpleFS_seek(polkadot, 33) == -1)
-  {
-    printf("Error: seek error\n");
-    free(fs); free(disk);  free(tr);
-    return -1; 
-  }
-
-  printf("Seek done, reading now!\n");
-
-  br = SimpleFS_read(polkadot, tr, bw - 33);
-  if(br != bw - 33)
-  {
-    printf("Error: read eror\n");
-    free(fs); free(disk);  free(tr);
-    return -1;
-  }
-  printf("%d byte letti in %s\nContenuto: '%s'\n", br, polkadot->fcb->fcb.name, tr);
-
-  if(SimpleFS_seek(polkadot, bw + 5) != -1)
-  {
-    printf("Seek_error: should return error!"); 
-    free(fs); free(disk);  free(tr);
-    return -1; 
-  }
-
-  printf("Position too high, as expected\n");
- 
-  SimpleFS_seek(polkadot, 0); printf("Cursore riportato a posizione zero in polkadot\n");
-
-
-  printf("\n\n----------------------------[CHANGE DIR TEST]----------------------------\n\n");
-  free(tr);
-  if(SimpleFS_changeDir(cur, "Jianl") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-
-  if(print_dir(cur) != 0) //expected empty msg
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk); 
-	  return -1;
-	} printf("\n...As expected\n");
-
-  printf("Going back to '/'\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-  if(print_dir(cur) == -1) //expected error cuz empty
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
-
-  printf("\n\nRemoving 2 files\n");
-  if(SimpleFS_close(monero) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_remove(cur, "monero.txt")  == -1)
-  {
-    printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  
-  printf("Monero removed\n");
-  //free(monero);
-  if(SimpleFS_close(moonriver) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_remove(cur, "moonriver.txt")  == -1)
-  {
-    printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  
-  printf("moonriver removed\n");
-  //free(moonriver);
-
-  printf("OK\n");
-  if(print_dir(cur) == -1) 
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
-
-  printf("\n-----------------------------[POPULATING]----------------------------------------\n\n");
-
-  printf("Going to 'Jianl'\n");
-  if(SimpleFS_changeDir(cur, "Jianl") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n\n");
-  printf("Current directory:\t%s\n", cur->dcb->fcb.name);
-
-  FileHandle* moonsama = SimpleFS_createFile(cur, "moonsama.txt");
-  if(moonsama == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  printf("Moonsama created\n");
- //
-  
-  FileHandle* moonbeam = SimpleFS_createFile(cur, "moonbeam.txt");
-  if(moonbeam == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  printf("Moonbeam created\n");
-  
-  FileHandle* solamander = SimpleFS_createFile(cur, "solamander.txt");
-  if(solamander == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  printf("Solamander created\n");
-  if(SimpleFS_remove(cur, "solamander.txt") == -1)
-  {
-    printf("Error: could not remove 'Movies'\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  FileHandle* cryptopunk = SimpleFS_createFile(cur, "cryptopunk.txt");
-  if(cryptopunk == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  printf("Cryptopunk created\n");
-  
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-    
-  printf("\n--------------------[MAKING NEW DIRECTORY]---------------------------------\n\n");
-
-  if(SimpleFS_mkDir(cur, "Videogames") == -1)
-  {
-    printf("Errore mkdir, RIP");
-    free(fs); free(disk);
-    return -1;
-  } printf("Directory named 'Videogames' created :)\n");
 
   printf("Contenuto directory:\n\n");
   if(print_dir(cur) == -1)
   {
 	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
+	  free(fs); 
 	  return -1;
 	}
   
+  printf("Changing dir, going in Jianl\n");
+
   
-  if(SimpleFS_mkDir(cur, "Music") == -1)
-  {
-    printf("Errore mkdir, RIP");
-    free(fs); free(disk);
-    return -1;
-  } printf("Directory named 'Music' created :)\n");
-
-  printf("Contenuto directory:\n\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
-
-  if(SimpleFS_mkDir(cur, "Movies") == -1)
-  {
-    printf("Errore mkdir, RIP");
-    free(fs); free(disk);
-    return -1;
-  } printf("Directory named 'Movies' created :)\n");
-
-  printf("Contenuto directory:\n\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-	}
-//-------------------------------------------------------------------------------------------------------------------------
-  printf("\nMoving into Videogames to populate it\n\n");
-  if(SimpleFS_changeDir(cur, "Videogames") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-
-  printf("Current directory:\t%s\n", cur->dcb->fcb.name);
-
-  FileHandle* FFX = SimpleFS_createFile(cur, "FinalFantasy_X.txt");
-  if(FFX == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
   
-  FileHandle* mtr2033 = SimpleFS_createFile(cur, "Metro_2033.txt");
-  if(mtr2033 == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
- 
-  FileHandle* undertale = SimpleFS_createFile(cur, "Undertale.txt");
-  if(undertale == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  //------------------------------------------------------------
-  printf("\nGoing back to Jianl, then jumpin into Music to populate it\n\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  if(SimpleFS_changeDir(cur, "Music") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-
-  printf("Current directory:\t%s\n", cur->dcb->fcb.name);
-
-  FileHandle* blackmarket = SimpleFS_createFile(cur, "Black_Market - Weather_Report.txt");
-  if(blackmarket == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  
-  FileHandle* saw = SimpleFS_createFile(cur, "Selected_Ambient_Works_vol.1 - Aphex_Twin.txt");
-  if(saw == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
- 
-  FileHandle* fo = SimpleFS_createFile(cur, "Freak_out - Frank_Zappa.txt");
-  if(fo == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  //------------------------------------------------------------
-  printf("\nGoing back to Jianl, then jumpin into Movies to populate it\n\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
- 
-  if(SimpleFS_changeDir(cur, "Movies") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-
-  printf("Current directory:\t%s\n", cur->dcb->fcb.name);
-
-  FileHandle* ran = SimpleFS_createFile(cur, "Ran - Akira_Kurosawa.txt");
-  if(ran == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
-  
-  FileHandle* dec_v = SimpleFS_createFile(cur, "La_decima_vittima - Elio_Petri.txt");
-  if(dec_v == NULL)
-  {
-    printf("Errore in creazione file, RIP");
-    free(fs); free(disk);
-    return -1;
-  }
- 
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  
-   //------------------------------------------------------------
-  printf("\nGoing back to Jianl, then removing Movies and all of its content, removing also some file\n\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)
-  {
-    printf("test: changedir error, cannot move to 'Jianl'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-
-  printf("Current directory:\t%s\n", cur->dcb->fcb.name);
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  //------------------------------------------------------------
-  if(SimpleFS_remove(cur, "Movies") == -1)
-  {
-    printf("Error: could not remove 'Movies'\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  printf("\n\n'Movies' removed successfully\n");
-
-
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_remove(cur, "moonsama.txt") == -1)
-  {
-    printf("Error: could not remove 'moonsama.txt'\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(moonsama) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  printf("moonsama removed\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  ///////////////////////////////////////////////////////
-
-  printf("\n---------------------------------[NAVIGATING THROUGH THE FS]-------------------------\n \n");
-  printf("\nGoing to VIdeogames\n");
-  if(SimpleFS_changeDir(cur, "Videogames") == -1)
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  printf("BAck to Jianl then to /\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-
-  if(SimpleFS_changeDir(cur, "Music") == -1)
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-    if(print_dir(cur) == -1)//we in music
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  
-  printf("BAck to Jianl then to /\n");
-  if(SimpleFS_changeDir(cur, "..") == -1)//we in jianl
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("OK\n");
-    if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_changeDir(cur, "..") == -1)//we  /
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-
-  printf("OK\n");
-    if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  printf("\nTRying to bo back, expected error\n");
-    if(SimpleFS_changeDir(cur, "..") != -1)//we in /
-  {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
-  }
-  printf("As expected...\n\n");
-  if(print_dir(cur) == -1)
-  {
-	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  printf("\n-------------------------------------------[CLOSING FILES]---------------------------------\n");
-  if(SimpleFS_close(fo) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(saw) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(blackmarket) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(FFX) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(mtr2033) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(undertale) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(cryptopunk) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  if(SimpleFS_close(moonbeam) == -1)
-  {
-    printf("Error: could not close file\n");
-	  free(fs); free(disk);
-	  return -1;
-  }
-  
-
-
-  printf("moving in jianl\n");
   if(SimpleFS_changeDir(cur, "Jianl") == -1)
   {
-       printf("test: changedir error, cannot move to '/'\n");
-    free(fs); free(disk); 
-    return -1; 
+    printf("Error while changing dir\n");
+    if(cur != NULL) SimpleFS_free_dir(cur);
+
+    free(fs);
+
+    return -1;
+  }
+  
+  printf("We in %s now\n---------------------[populating]------------------\n", cur->dcb->fcb.name);
+
+  
+  FileHandle* a = SimpleFS_createFile(cur, "a.txt");
+  if(a == NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  if(SimpleFS_close(a) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+  
+  //printf("%s\n", cur->dcb->fcb.name);
+
+  FileHandle* b = SimpleFS_createFile(cur, "a.txt");
+  if(b != NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  } printf("\tas expected\n");
+
+  FileHandle* c = SimpleFS_createFile(cur, "c.txt");
+  if(c == NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  }
+  if(SimpleFS_close(c) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  /*
+    creare directory Jianl_2 dentro Jianl e riempire anche quella, poi stampare tutto, poi rimuovere Jianl, rimuovendo anche Jianl_2
+    stampare '/'
+  */
+
+  if(SimpleFS_mkDir(cur, "Jianl_2") == -1)
+  {
+    printf("Errore mkdir, RIP");
+    free(fs); 
+    return -1;
+  } 
+  printf("\n\nSiamo in jianl, creata cartella jianl_2\n\n-----------------------\n");
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); 
+	  return -1;
+	}
+
+  if(SimpleFS_changeDir(cur, "Jianl_2") == -1) 
+  {
+    printf("Error while changing dir\n");
+    if(cur != NULL) SimpleFS_free_dir(cur);
+
+    free(fs);
+
+    return -1;
+  }
+  printf("WE IN JIANL_2\n");
+
+  //----------------------------------------------------------------------------------------
+  FileHandle* uno = SimpleFS_createFile(cur, "uno.txt");
+  if(uno == NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  }
+  if(SimpleFS_close(uno) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+  FileHandle* due = SimpleFS_createFile(cur, "due.txt");
+  if(due == NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  }
+  if(SimpleFS_close(due) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+  FileHandle* tre = SimpleFS_createFile(cur, "tre.txt");
+  if(tre == NULL)
+  {
+     printf("Error: could not create file a.\n");
+	  free(fs); 
+	  return -1;
+  }
+  if(SimpleFS_close(tre) == -1)
+  {
+    printf("Error: could not close file\n");
+	  free(fs); 
+	  return -1;
+  }
+
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); 
+	  return -1;
+	}
+  
+  printf("JIANL 2 -> cd ..\n");
+  if(SimpleFS_changeDir(cur, "..") == -1) 
+  {
+    printf("Error while changing dir\n");
+    if(cur != NULL) SimpleFS_free_dir(cur);
+
+    free(fs);
+
+    return -1;
   }
   if(print_dir(cur) == -1)
   {
 	  printf("Error: could not read current dir.\n");
-	  free(fs); free(disk);
+	  free(fs); 
 	  return -1;
+	}
+  printf("JIANL  -> cd ..\n");
+  if(SimpleFS_changeDir(cur, "..") == -1) 
+  {
+    printf("Error while changing dir\n");
+    if(cur != NULL) SimpleFS_free_dir(cur);
+
+    free(fs);
+
+    return -1;
   }
-  
-  printf("Closed everything, exiting...\n"); */
+
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); 
+	  return -1;
+	}
+
+  DiskDriver_print(&disk);
+  printf("\n\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\n");
+ 
+  if(SimpleFS_remove(cur, "Jianl") == -1)
+  {
+    printf("RMV error\n");
+    return -1;
+  }
+
+  printf("RIMOSSO JIANL, con sideeffect\n");
+
+  if(print_dir(cur) == -1)
+  {
+	  printf("Error: could not read current dir.\n");
+	  free(fs); 
+	  return -1;
+	}
+
+  DiskDriver_print(&disk);
+
+  printf("Closed everything, exiting...\n");
+
+  //free(cur);
   if(cur != NULL) SimpleFS_free_dir(cur);
 
   free(fs);

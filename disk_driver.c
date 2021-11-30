@@ -103,9 +103,10 @@ void DiskDriver_init(DiskDriver* disk, const char* filename, int num_blocks)
 // 0 otherwise
 int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
 {   
+    //printf("BLOCKNUM RECEIVED: %d\n", block_num);
     if(block_num < 0)
     {
-        printf("[RD]Invalid param (block_num < 0), returning -1\n");
+        printf("[RD]Invalid param (block_num < 0), block num = %d returning -1\n", block_num);
         return -1;
     }
     if (block_num >= disk->header->bitmap_blocks )
@@ -125,6 +126,7 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
     }
 
     BitMap bm;
+    //memset(&bm, 0, sizeof(BitMap));
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
 
