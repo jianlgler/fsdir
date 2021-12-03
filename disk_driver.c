@@ -129,8 +129,9 @@ int DiskDriver_readBlock(DiskDriver* disk, void* dest, int block_num)
     //memset(&bm, 0, sizeof(BitMap));
     bm.num_bits = disk->header->bitmap_blocks;
     bm.entries = disk->bitmap_data;
-
-    if(BitMap_get(&bm, block_num, 0) == block_num) //cerco un blocco libero (== 0) partendo proprio da block num
+    //printf("[shelltest] block num to read= %d\n", block_num);
+    //printf("[shelltest] bitmap get test = %d\n", BitMap_get(&bm, block_num, 0));
+    if(BitMap_get(&bm, block_num, 0) == block_num)
     {
         printf("Block is free, returning -1\n");
         return -1; //blocco libero, nulla da leggere
@@ -218,7 +219,7 @@ int DiskDriver_writeBlock(DiskDriver* disk, void* src, int block_num)
     {
         printf("Error while reading"); return -1;
     }
-    
+    //printf("block_num to set to one: %d\n", block_num);
     if(BitMap_set(&bm, block_num, 1) == -1) 
     {
         printf("Impossibile modificare stato del blocco desiderato"); return -1;

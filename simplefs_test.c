@@ -38,7 +38,7 @@ int print_dir(DirectoryHandle* cur)
   if(SimpleFS_readDir(names, cur, flag) == -1)
   {
     printf("Error on SimpleFS_readDir");
-    for (int i = 0; i < cur->dcb->num_entries; i++) free(names[i]); 
+    //for (int i = 0; i < cur->dcb->num_entries; i++) free(names[i]); 
     free(flag);
     free(names);
     return -1;
@@ -509,13 +509,13 @@ for(int i = 0; i < disk.header->num_blocks; i++)
     
     char name[10]; 
     sprintf(name,"%d_fh.txt", i);
-    printf("\n");
+    //printf("\n");
     FileHandle* fh = SimpleFS_createFile(cur, name);
     if(fh == NULL)
     {
-    printf("Errore in creazione file, RIP");
-    free(fs); 
-    return -1;
+      printf("Errore in creazione file, RIP");
+      free(fs); 
+      return -1;
     }
     if(SimpleFS_close(fh) == -1)
     {
@@ -737,13 +737,12 @@ for(int i = 0; i < disk.header->num_blocks; i++)
     free(fs); 
     return -1;
   }
-  printf("asd\n");
   i = 7;
   while(cur->dcb->file_blocks[i] != -1 && i < 99)
   {    
     char name[10]; 
     sprintf(name,"%d_fh.txt", i);
-    printf("\n");
+    //printf("\n");
     if(SimpleFS_remove(cur, name) == -1)
     {
       printf("RMV error\n");
