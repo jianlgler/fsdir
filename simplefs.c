@@ -874,6 +874,9 @@ int SimpleFS_seek(FileHandle* f, int pos)
 // seeks for a directory in d. If dirname is equal to ".." it goes one level up
 // 0 on success, negative value on error
 // it does side effect on the provided handle
+
+//ogni volta che chiamo cd ho memory leak di 512 byte >:( *******
+//questo perchè dovrei fare la free del first directory block a cui punta il directory handle prima di riassegnargli un puntatore, ma se faccio free esplode tutto e ho errore
 int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
 {
     if(d == NULL) 
@@ -917,9 +920,9 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
             printf("SimpleFS_changeDir: cannot read parent directory\n");
             return -1;
         }
+        d->current_block =  &d->dcb->header;
         //free(d->dcb);
         d->dcb = temp;
-        d->current_block =  &d->dcb->header;
         d->pos_in_block = 0;
         d->pos_in_dir = 0;
         if(temp->fcb.directory_block == -1) d->directory = NULL;
@@ -956,9 +959,9 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
                 if(strcmp(temp->fcb.name,dirname) == 0)
                 {
                     d->directory = fdb;
+                    d->current_block = &d->dcb->header;
                     //free(d->dcb);
                     d->dcb = temp;
-                    d->current_block = &d->dcb->header;
                     d->pos_in_block = 0; 
                     d->pos_in_dir = i;
                 
@@ -993,9 +996,9 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
                     if(strcmp(temp->fcb.name,dirname) == 0)
                     {   
                         d->directory = fdb;
+                        d->current_block = &d->dcb->header;
                         //free(d->dcb);
                         d->dcb = temp;
-                        d->current_block = &d->dcb->header;
                         d->pos_in_block = 0; 
                         d->pos_in_dir = i;
                         

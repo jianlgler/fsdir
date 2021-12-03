@@ -372,6 +372,7 @@ for(int i = 0; i < disk.header->num_blocks; i++)
    return -1;
   } 
 
+
   printf("Current directory: %s\tBlock in disk: %d\n", cur->dcb->fcb.name, cur->dcb->fcb.block_in_disk);
 
   /*printf("DOUBT CHEK\n\n");
@@ -998,7 +999,7 @@ for(int i = 0; i < disk.header->num_blocks; i++)
 
   //free(cur);
   if(cur != NULL) SimpleFS_free_dir(cur);
-
+  
   free(fs);
 
   return 0;

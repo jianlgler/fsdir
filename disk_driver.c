@@ -275,6 +275,11 @@ int DiskDriver_freeBlock(DiskDriver* disk, int block_num)
     disk->header->first_free_block = BitMap_get(&bm, 0, 0);//DiskDriver_getFreeBlock(disk, 0);
     //if(block_num < disk->header->first_free_block) disk->header->first_free_block = block_num;
     //printf("Block %d freed\n", block_num);
+    if(DiskDriver_flush(disk) == -1)
+    {
+        printf("Cannot ensure writing on disk\n");
+        return -1;
+    }
     return 0; 
 }
 
