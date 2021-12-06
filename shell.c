@@ -28,7 +28,7 @@ DirectoryHandle* FS_setup(const char* filename, DiskDriver* disk, SimpleFS* simp
 
 void FS_abortion(int dummy)
 {
-    printf("\nClosingnnn\n"); 
+    printf("\nClosing...\n"); 
     if(cur != NULL) SimpleFS_free_dir(cur);
     if(fs != NULL) free(fs);
     printf("\tGoodbye\n");

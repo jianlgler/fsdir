@@ -889,11 +889,8 @@ int SimpleFS_changeDir(DirectoryHandle* d, char* dirname)
         printf("Invalid param (dirname)");
         return -1;
     }
-    if (strcmp(d->dcb->fcb.name, dirname) == 0)
-        return 0;
     
-    if (strcmp(dirname, ".") == 0) 
-        return 0;
+    if (strcmp(dirname, ".") == 0) return 0;
 
     int ret = 0;
     DiskDriver* disk = d->sfs->disk;
